@@ -43,6 +43,8 @@ public partial class Character : Unit, ICharacter
 
     public static Dictionary<uint, uint> UsedCharacterObjIds { get; } = [];
 
+    private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
     private readonly Dictionary<ushort, string> _options;
 
     public List<IDisposable> Subscribers { get; set; }
@@ -2772,7 +2774,24 @@ public partial class Character : Unit, ICharacter
         stream.Write(0L);                                              // heirExp (i64)
         stream.Write((uint)Hp);                                        // health
         stream.Write((uint)Mp);                                        // mana
-        stream.Write(Transform.ZoneId);                               // zoneId (u32)
+
+        var zone = ZoneManager.Instance.GetZoneByKey(Transform.ZoneId);
+        if (zone == null)
+        {
+            Logger.Error(
+                "[ZONE-WIRE] No compact zone for server zoneKey={0}, char={1}",
+                Transform.ZoneId,
+                Id);
+        }
+        var clientZoneId = zone?.Id ?? 0u;
+        stream.Write(clientZoneId);                                   // 10.8 CharacterBody.zid
+
+        Logger.Info(
+            "[ZONE-WIRE] char={0} serverZoneKey={1} clientZoneId={2}",
+            Id,
+            Transform.ZoneId,
+            clientZoneId);
+
         stream.Write((uint)(Faction?.Id ?? 0));                       // factionId (u32)
         stream.Write(FactionName ?? "");                              // factionName (string)
         stream.Write((uint)(Expedition?.Id ?? 0));                    // expeditionId (u32)

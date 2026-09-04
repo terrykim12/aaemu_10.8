@@ -13,6 +13,8 @@ public class SCCharacterStatePacket(Character character) : GamePacket(SCOffsets.
 {
     public override PacketStream Write(PacketStream stream)
     {
+        var payloadStart = stream.Count;
+
         // Wrapper
         stream.Write((uint)character.Transform.InstanceId); // iid
         // guid: serialized with the same length-prefixed byte-string writer used for the faction-relation
@@ -22,12 +24,21 @@ public class SCCharacterStatePacket(Character character) : GamePacket(SCOffsets.
         var guid = new byte[16];
         BitConverter.GetBytes((ulong)character.Id).CopyTo(guid, 0);
         BitConverter.GetBytes((ulong)character.Id ^ 0x5AA5_A55A_5AA5_A55AUL).CopyTo(guid, 8);
-        stream.Write(guid, true);                           // guid (u16 length + 16 bytes)
+        stream.Write(guid, false); // 10.8 SCCharacterState wrapper guid is fixed raw 16 bytes. Do NOT prepend a u16 length.
         stream.Write(0u);                                   // rwd
         stream.Write(0u);                                   // srwd
 
+        var bodyStart = stream.Count;
+        var wrapperLen = bodyStart - payloadStart;
+
         // Character body — lobby record (Character.WriteLobby1013)
         character.WriteLobby1013(stream);
+
+        var decodedBodyId = BitConverter.ToInt64(stream.Buffer, bodyStart);
+        var bodyFirst32 = new byte[Math.Min(32, stream.Count - bodyStart)];
+        Buffer.BlockCopy(stream.Buffer, bodyStart, bodyFirst32, 0, bodyFirst32.Length);
+
+        Logger.Info($"[CHARSTATE-WIRE] characterId={character.Id} payloadStart={payloadStart} bodyStart={bodyStart} wrapperLen={wrapperLen} guid={Convert.ToHexString(guid)} bodyFirst32={Convert.ToHexString(bodyFirst32)} decodedBodyId={decodedBodyId}");
 
         // State tail
         stream.Write(0f);                                   // angles.x
@@ -101,6 +112,11 @@ public class SCCharacterStatePacket(Character character) : GamePacket(SCOffsets.
         stream.Write(0u);                                   // merchantGoodsLimitPurchaseMap size=0
         stream.Write(0u);                                   // actSanctionMap size=0
         stream.Write(0u);                                   // additionalSkillPoint
+
+        var payloadLen = stream.Count - payloadStart;
+        var rawPayload = new byte[payloadLen];
+        Buffer.BlockCopy(stream.Buffer, payloadStart, rawPayload, 0, payloadLen);
+        Logger.Info($"[RAW-0x28B] opcode=0x28B payloadLen={payloadLen} rawHex={Convert.ToHexString(rawPayload)}");
 
         return stream;
     }
