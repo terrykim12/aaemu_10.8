@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+using System.Numerics;
 using AAEmu.Commons.Network;
 using AAEmu.Game.Core.Managers.World;
 using AAEmu.Game.Models.StaticValues;
@@ -16,6 +16,11 @@ public class Portal : PacketMarshaler
     public float ZRot { get; set; }
     public float Yaw { get; set; }
 
+    public byte Type { get; set; } = 0;
+    public bool IsFavorite { get; set; } = false;
+    public bool IsDisable { get; set; } = false;
+    public bool FactionPermission { get; set; } = true;
+
     public uint SubZoneId { get; set; }
     public uint Owner { get; set; }
     public uint WorldId { get; set; }
@@ -24,6 +29,7 @@ public class Portal : PacketMarshaler
     {
         stream.Write(Id);
         stream.Write(Name); // TODO max length 128
+        stream.Write(Type); // 10.8: ReadByte("type")
         stream.Write(ZoneId);
         var origin = ZoneId != 0 ? ZoneManager.Instance.GetZoneOriginCell(ZoneId) : Vector2.Zero;
         var offX = X - origin.X * 1024f;
@@ -32,6 +38,9 @@ public class Portal : PacketMarshaler
         stream.Write(offY);
         stream.Write(Z);
         stream.Write(ZRot);
+        stream.Write(IsFavorite); // 10.8: ReadBoolean("isFavorite")
+        stream.Write(IsDisable); // 10.8: ReadBoolean("isDisable")
+        stream.Write(FactionPermission); // 10.8: ReadBoolean("factionPermission")
         return stream;
     }
 }
