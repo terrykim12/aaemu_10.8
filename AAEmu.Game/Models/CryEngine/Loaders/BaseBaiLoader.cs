@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Numerics;
 using AAEmu.Commons.Exceptions;
 using NLog;
@@ -18,6 +18,8 @@ public class BaseBaiLoader(WorldTemplate parentWorldTemplate)
     public List<VertexMissionReader> VertexMissionReaders { get; } = [];
     public List<NetMissionReader> HideMissionReaders { get; } = [];
 
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> s_folderLoadCounts = new();
+
     /// <summary>
     /// Loads .bai files data from a given zone or path folder
     /// </summary>
@@ -27,6 +29,12 @@ public class BaseBaiLoader(WorldTemplate parentWorldTemplate)
     public void LoadBaiFilesFromFolder(string zoneOrPathsFolder, bool additiveLoad = false)
     {
         var worldFolder = Path.Combine("game", "worlds", ParentWorldTemplate.Name);
+
+        var loadCount = s_folderLoadCounts.AddOrUpdate(zoneOrPathsFolder, 1, (_, count) => count + 1);
+        var alreadyLoaded = loadCount > 1;
+        var caller = new System.Diagnostics.StackTrace(1, false).GetFrame(0)?.GetMethod()?.Name ?? "unknown";
+        var tickId = Core.Managers.TickManager.CurrentTickId;
+        Logger.Info($"[BAI-DIAG] CellId={zoneOrPathsFolder}, AlreadyLoaded={alreadyLoaded}, LoadCount={loadCount}, Caller={caller}, TickId={tickId}");
 
         if (!additiveLoad)
             ClearData();

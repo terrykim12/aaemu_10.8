@@ -1,4 +1,4 @@
-﻿using AAEmu.Commons.Network;
+using AAEmu.Commons.Network;
 using AAEmu.Game.Core.Managers;
 using AAEmu.Game.Core.Managers.World;
 using AAEmu.Game.Core.Network.Game;
@@ -53,7 +53,7 @@ public class CSStartSkillPacket() : GamePacket(CSOffsets.CSStartSkillPacket, 1)
         var flag = stream.ReadByte();
         var flagType = flag & 15;
         var skillObject = SkillObject.GetByType((SkillObjectType)flagType);
-        if (flagType > 0) skillObject.Read(stream);
+        skillObject.Read(stream);
 
         HarpoonMechanicsDebug.LogCsStartSkillIfHarpoon(skillId, flag, flagType, skillCaster, skillCastTarget, skillObject);
 

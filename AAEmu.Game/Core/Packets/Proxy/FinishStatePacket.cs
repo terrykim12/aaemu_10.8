@@ -1,4 +1,4 @@
-﻿using AAEmu.Commons.Network;
+using AAEmu.Commons.Network;
 using AAEmu.Game.Core.Managers.World;
 using AAEmu.Game.Core.Network.Game;
 using AAEmu.Game.Core.Packets.G2C;
@@ -32,10 +32,9 @@ public class FinishStatePacket() : GamePacket(PPOffsets.FinishStatePacket, 2)
                 Connection.SendPacket(new SCInitialConfigPacket());
 
                 // Lobby config-burst order verified against a live 10.0.2.13 capture:
-                // SCInitialConfig is followed by
-                // SCServerInfo then SCWorldContent, then SCAccountInfo. SCWorldContent carries the content-filter
-                // table (sent empty here = no content blocked).
-                Connection.SendPacket(new SCServerInfoPacket());
+                // SCServerInfo (0x399 = 921) does not exist in 10.8 (client max opcode table is 0x38D = 909).
+                // Sending it causes "sc error; cur=921 prev=883" and network stream desync.
+                // Connection.SendPacket(new SCServerInfoPacket());
                 Connection.SendPacket(new SCWorldContentPacket());
 
                 // SCTrionConfig does not exist in the 10.0.2.13 client (its opcode 0x07 now belongs to

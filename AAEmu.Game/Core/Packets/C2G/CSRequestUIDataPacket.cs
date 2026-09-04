@@ -1,4 +1,4 @@
-﻿using AAEmu.Commons.Network;
+using AAEmu.Commons.Network;
 using AAEmu.Game.Core.Network.Game;
 using AAEmu.Game.Core.Packets.G2C;
 
@@ -9,11 +9,11 @@ public class CSRequestUIDataPacket() : GamePacket(CSOffsets.CSRequestUIDataPacke
     public override void Read(PacketStream stream)
     {
         var uiDataType = stream.ReadUInt16();
-        var id = stream.ReadUInt32();
+        var id = stream.ReadUInt64();
 
-        if (Connection.Characters.TryGetValue(id, out var value))
+        if (Connection.Characters.TryGetValue((uint)id, out var value))
             Connection.SendPacket(
-                new SCResponseUIDataPacket(id, uiDataType, value.GetOption(uiDataType))
+                new SCResponseUIDataPacket((uint)id, uiDataType, value.GetOption(uiDataType))
             );
     }
 }

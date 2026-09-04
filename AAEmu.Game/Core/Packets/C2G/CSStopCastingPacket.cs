@@ -1,4 +1,4 @@
-﻿using AAEmu.Commons.Network;
+using AAEmu.Commons.Network;
 using AAEmu.Game.Core.Network.Game;
 using AAEmu.Game.Core.Packets.G2C;
 using AAEmu.Game.Models.Tasks.Skills;
@@ -27,8 +27,9 @@ public class CSStopCastingPacket() : GamePacket(CSOffsets.CSStopCastingPacket, 1
             }
             else
             {
-                Connection.SendPacket(new SCPlotCastingStoppedPacket(plotTlId, 0, 1));
-                Connection.SendPacket(new SCPlotChannelingStoppedPacket(plotTlId, 0, 1));
+                // Note: Unverified in 10.8
+                // Connection.SendPacket(new SCPlotCastingStoppedPacket(plotTlId, 0, 1));
+                // Connection.SendPacket(new SCPlotChannelingStoppedPacket(plotTlId, 0, 1));
             }
         }
 

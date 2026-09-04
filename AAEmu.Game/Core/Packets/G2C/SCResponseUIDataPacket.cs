@@ -8,12 +8,11 @@ public class SCResponseUIDataPacket(uint characterId, ushort uiDataType, string 
 {
     public override PacketStream Write(PacketStream stream)
     {
-        // 10.0.2.13 body:
-        // type(i64 charId) | uiDataType(u16) | uiData(length-prefixed string) | size(u32).
+        var data = uiData ?? string.Empty;
         stream.Write((ulong)characterId);
         stream.Write(uiDataType);
-        stream.Write(uiData);
-        stream.Write(uiData.Length + 1);
+        stream.Write(data);
+        stream.Write((uint)data.Length);
         return stream;
     }
 }

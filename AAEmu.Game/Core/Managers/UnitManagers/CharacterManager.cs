@@ -1,4 +1,4 @@
-﻿using AAEmu.Commons.Exceptions;
+using AAEmu.Commons.Exceptions;
 using AAEmu.Commons.IO;
 using AAEmu.Commons.Models;
 using AAEmu.Commons.Utils;
@@ -458,7 +458,6 @@ public class CharacterManager(
             useAccessLevel = Math.Max(AppConfiguration.Instance.Account.AccessLevelFirstCharacter, useAccessLevel);
 
         var characterId = characterIdManager.GetNextId();
-        nameManager.AddCharacter(characterId, name, connection.AccountId);
         var template = GetTemplate(race, gender);
 
         var character = new Character(customModel)
@@ -578,6 +577,7 @@ public class CharacterManager(
 
         if (character.SaveDirectlyToDatabase())
         {
+            nameManager.AddCharacter(character.Id, name, connection.AccountId);
             connection.Characters.Add(character.Id, character);
             connection.SendPacket(new SCCreateCharacterResponsePacket(character));
         }
@@ -587,7 +587,6 @@ public class CharacterManager(
             // Just send a generic Failed error (Name already in use for pending deletion)
             connection.SendPacket(new SCCharacterCreationFailedPacket(CharacterCreateError.Failed));
             characterIdManager.ReleaseId(characterId);
-            nameManager.RemoveCharacterId(characterId);
             // TODO release items...
             DeleteCharacterAssets(character, true);
         }

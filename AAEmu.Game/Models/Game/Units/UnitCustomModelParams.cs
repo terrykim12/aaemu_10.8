@@ -93,7 +93,7 @@ public class FaceModel : PacketMarshaler
         EyebrowColor = stream.ReadUInt32();
         DecoColor = stream.ReadUInt32();
 
-        Modifier = stream.ReadBytes();
+        Modifier = stream.ReadBytes(); // 10.8 face-maker morph sliders (u16 length + 128 bytes)
     }
 
     public override PacketStream Write(PacketStream stream)
@@ -124,32 +124,30 @@ public class FaceModel : PacketMarshaler
         stream.Write(EyebrowColor);
         stream.Write(DecoColor);
 
-        stream.Write(Modifier, true); // face-maker morph sliders (length-prefixed, max 128)
+        stream.Write(Modifier, true); // 10.8 face-maker morph sliders (u16 length + 128 bytes)
         return stream;
     }
 }
 
-// 10.0.2.13 appearance block (LobbyChar_WriteAppearance). A leading `ext` byte
+// 10.8 appearance block (LobbyChar_WriteAppearance). A leading `ext` byte
 // (UnitCustomModelType) is a cumulative LOD gate: 0 = nothing, 1 = +hair (T1), 2 = +body (T2), >=3 = +face (T3).
 // Shared by SC_PACKET_UNIT_STATE, the character list, and the CSCreateCharacter body.
 public class UnitCustomModelParams : PacketMarshaler
 {
     private UnitCustomModelType _type;
 
-    // T1 — base appearance (ext >= Hair)
-    public byte Race { get; set; }
-    public byte Gender { get; set; }
-    public long VisualRaceExpiredTime { get; set; }
-    public byte VisualRace { get; set; }
-    public byte VisualGender { get; set; }
+    // T1 — base appearance
+    public uint HairColorId { get; set; }        // defaultHairColor / hair style
+
+    // T2
     public uint HairColor { get; set; }
     public uint HornColor { get; set; }
-    public uint HairColorId { get; set; }        // wire `defaultHairColor`
+
+    // T3
+    public uint DefaultHairColor { get; set; }
     public uint TwoToneHairColor { get; set; }
     public float TwoToneFirstWidth { get; set; }
     public float TwoToneSecondWidth { get; set; }
-
-    // T2 — body (ext >= Skin)
     public uint SkinColorId { get; set; }        // wire `skinColor`
     public uint BodyDiffuseMap { get; set; }
     public uint BodyNormalMap { get; set; }
@@ -158,8 +156,22 @@ public class UnitCustomModelParams : PacketMarshaler
     // Kept for callers; the unit's model id is sent separately (unit-state modelRef), not in this block.
     public uint ModelId { get; set; }
 
-    // T3 — face (ext >= Face)
+    // Face (ext >= Face)
     public FaceModel Face { get; private set; }
+
+    // Base identity fields placed after Face in 10.8
+    public byte Race { get; set; }
+    public byte Gender { get; set; }
+    public long VisualRaceExpiredTime { get; set; }
+    public byte VisualRace { get; set; }
+    public byte VisualGender { get; set; }
+
+    // 10.8 Wings customization
+    public uint WingColor { get; set; }
+    public byte WingScale { get; set; } = 100;
+    public sbyte WingOffsetX { get; set; }
+    public sbyte WingOffsetY { get; set; }
+    public sbyte WingOffsetZ { get; set; }
 
     public UnitCustomModelParams(UnitCustomModelType type = UnitCustomModelType.None)
     {
@@ -206,32 +218,40 @@ public class UnitCustomModelParams : PacketMarshaler
             return;
 
         // T1
-        Race = stream.ReadByte();
-        Gender = stream.ReadByte();
-        VisualRaceExpiredTime = stream.ReadInt64();
-        VisualRace = stream.ReadByte();
-        VisualGender = stream.ReadByte();
-        HairColor = stream.ReadUInt32();
-        HornColor = stream.ReadUInt32();
         HairColorId = stream.ReadUInt32();
-        TwoToneHairColor = stream.ReadUInt32();
-        TwoToneFirstWidth = stream.ReadSingle();
-        TwoToneSecondWidth = stream.ReadSingle();
 
         if (_type < UnitCustomModelType.Skin)
             return;
 
         // T2
-        SkinColorId = stream.ReadUInt32();
-        BodyDiffuseMap = stream.ReadUInt32();
-        BodyNormalMap = stream.ReadUInt32();
-        BodyWeight = stream.ReadSingle();
+        HairColor = stream.ReadUInt32();
+        HornColor = stream.ReadUInt32();
 
         if (_type < UnitCustomModelType.Face)
             return;
 
         // T3
+        HairColorId = stream.ReadUInt32();
+        DefaultHairColor = stream.ReadUInt32();
+        TwoToneHairColor = stream.ReadUInt32();
+        TwoToneFirstWidth = stream.ReadSingle();
+        TwoToneSecondWidth = stream.ReadSingle();
+        SkinColorId = stream.ReadUInt32();
+        BodyWeight = stream.ReadSingle();
+
         Face.Read(stream);
+
+        Race = stream.ReadByte();
+        Gender = stream.ReadByte();
+        VisualRaceExpiredTime = stream.ReadInt64();
+        VisualRace = stream.ReadByte();
+        VisualGender = stream.ReadByte();
+
+        WingColor = stream.ReadUInt32();
+        WingScale = stream.ReadByte();
+        WingOffsetX = (sbyte)stream.ReadByte();
+        WingOffsetY = (sbyte)stream.ReadByte();
+        WingOffsetZ = (sbyte)stream.ReadByte();
     }
 
     public override PacketStream Write(PacketStream stream)
@@ -242,32 +262,40 @@ public class UnitCustomModelParams : PacketMarshaler
             return stream;
 
         // T1
-        stream.Write(Race);
-        stream.Write(Gender);
-        stream.Write(VisualRaceExpiredTime);
-        stream.Write(VisualRace);
-        stream.Write(VisualGender);
-        stream.Write(HairColor);
-        stream.Write(HornColor);
-        stream.Write(HairColorId);          // defaultHairColor
-        stream.Write(TwoToneHairColor);
-        stream.Write(TwoToneFirstWidth);
-        stream.Write(TwoToneSecondWidth);
+        stream.Write(HairColorId);
 
         if (_type < UnitCustomModelType.Skin)
             return stream;
 
         // T2
-        stream.Write(SkinColorId);          // skinColor
-        stream.Write(BodyDiffuseMap);
-        stream.Write(BodyNormalMap);
-        stream.Write(BodyWeight);
+        stream.Write(HairColor);
+        stream.Write(HornColor);
 
         if (_type < UnitCustomModelType.Face)
             return stream;
 
         // T3
+        stream.Write(HairColorId);
+        stream.Write(DefaultHairColor);
+        stream.Write(TwoToneHairColor);
+        stream.Write(TwoToneFirstWidth);
+        stream.Write(TwoToneSecondWidth);
+        stream.Write(SkinColorId);
+        stream.Write(BodyWeight);
+
         stream.Write(Face);
+
+        stream.Write(Race);
+        stream.Write(Gender);
+        stream.Write(VisualRaceExpiredTime);
+        stream.Write(VisualRace);
+        stream.Write(VisualGender);
+
+        stream.Write(WingColor);
+        stream.Write(WingScale);
+        stream.Write((byte)WingOffsetX);
+        stream.Write((byte)WingOffsetY);
+        stream.Write((byte)WingOffsetZ);
 
         return stream;
     }

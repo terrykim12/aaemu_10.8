@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 
 using AAEmu.Commons.Network.Core;
 using AAEmu.Commons.Utils;
@@ -255,10 +255,8 @@ public class GameNetwork : Singleton<GameNetwork>
         RegisterPacket(CSOffsets.CSCreateShipyardPacket, 1, typeof(CSCreateShipyardPacket));
         RegisterPacket(CSOffsets.CSRestartMainQuestPacket, 1, typeof(CSRestartMainQuestPacket));
         RegisterPacket(CSOffsets.CSSetLpManageCharacterPacket, 1, typeof(CSSetLpManageCharacterPacket));
-        RegisterPacket(CSOffsets.CSUpgradeExpertLimitPacket, 1, typeof(CSUpgradeExpertLimitPacket));
-        RegisterPacket(CSOffsets.CSDowngradeExpertLimitPacket, 1, typeof(CSDowngradeExpertLimitPacket));
         RegisterPacket(CSOffsets.CSExpandExpertPacket, 1, typeof(CSExpandExpertPacket));
-        //RegisterPacket(0x100, 1, typeof(CSSearchListPacket)); TODO: this packet is not in the offsets 
+        RegisterPacket(CSOffsets.CSSearchListPacket, 1, typeof(CSSearchListPacket));
         RegisterPacket(CSOffsets.CSAddFriendPacket, 1, typeof(CSAddFriendPacket));
         RegisterPacket(CSOffsets.CSDeleteFriendPacket, 1, typeof(CSDeleteFriendPacket));
         RegisterPacket(CSOffsets.CSCharDetailPacket, 1, typeof(CSCharDetailPacket));

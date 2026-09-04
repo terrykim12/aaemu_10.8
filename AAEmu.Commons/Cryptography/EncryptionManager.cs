@@ -85,11 +85,14 @@ public class EncryptionManager : Singleton<EncryptionManager>
 
             var head = BitConverter.ToUInt32(xorRaw, 0);
             keys.Head = head;
-            // XOR key derivation from the head dword.
-            keys.XorKey1 = unchecked(head * (head ^ 0x15A02403u) ^ 0x070F1F23u);
-            keys.XorKey2 = unchecked(head * (head ^ 0xFF217A82u) ^ 0x1F23070Fu);
+            // XOR key derivation from the head dword (10.8 CryNetwork.dll: 0x39552DBD, 0x39552DEF).
+            keys.XorKey1 = unchecked(head * (head ^ 0x15A02412u) ^ 0x070F1F23u);
+            keys.XorKey2 = unchecked(head * (head ^ 0xFF217A91u) ^ 0x1F23070Fu);
             keys.ReceivedKeys = true;
-            Logger.Info("StoreClientKeys ok acc={0} conn={1} head={2:X8}", accountId, connectionId, head);
+            Logger.Info("[CRYPTO-DIAG] StoreClientKeys ok acc={0} conn={1} head={2:X8}", accountId, connectionId, head);
+            Logger.Info("[CRYPTO-DIAG] AesKey ({0} bytes): {1}", keys.AesKey.Length, Convert.ToHexString(keys.AesKey));
+            Logger.Info("[CRYPTO-DIAG] XorRaw ({0} bytes): {1}", xorRaw.Length, Convert.ToHexString(xorRaw));
+            Logger.Info("[CRYPTO-DIAG] Derived XorKey1={0:X8}, XorKey2={1:X8}", keys.XorKey1, keys.XorKey2);
         }
         catch (Exception e)
         {
@@ -200,17 +203,28 @@ public class EncryptionManager : Singleton<EncryptionManager>
             keys.IV = new byte[16];
         }
 
+        Logger.Info("[CRYPTO-DIAG] CSDecrypt packet #{0}: input {1} bytes, hex={2}", keys.CsNum, input.Length, Convert.ToHexString(input));
+
         // Verified combo (live test 2026-06-24): AES = AesKey (blob[0]), XOR = XorKey1.
         var (xored, realLen) = CsDecodeXor(input, keys, keys.XorKey1);
+        Logger.Info("[CRYPTO-DIAG] CSDecrypt packet #{0}: realLen={1}, xored hex={2}", keys.CsNum, realLen, Convert.ToHexString(xored));
+
         var plain = CsDecodeAes(xored, keys, keys.AesKey);
+        Logger.Info("[CRYPTO-DIAG] CSDecrypt packet #{0}: plain ({1} bytes) hex={2}", keys.CsNum, plain.Length, Convert.ToHexString(plain));
+
         keys.CsNum++;
 
         if (realLen > 0 && realLen <= plain.Length)
         {
             var trimmed = new byte[realLen];
             Array.Copy(plain, 0, trimmed, 0, realLen);
+            Logger.Info("[CRYPTO-DIAG] CSDecrypt packet #{0}: cipherLen={1}, decryptedBlockLen={2}, realLen={3}, returnedPlainLen={4}",
+                keys.CsNum - 1, cipherLen, plain.Length, realLen, trimmed.Length);
             return trimmed;
         }
+
+        Logger.Info("[CRYPTO-DIAG] CSDecrypt packet #{0}: cipherLen={1}, decryptedBlockLen={2}, realLen={3}, returnedPlainLen={4}",
+            keys.CsNum - 1, cipherLen, plain.Length, realLen, plain.Length);
         return plain;
     }
 
@@ -224,7 +238,8 @@ public class EncryptionManager : Singleton<EncryptionManager>
 
         var xorKey = unchecked(xorKeyBase * xorKeyBase); // client encrypt squares the key
         var mul = unchecked(msgKey * xorKey);
-        var cry = unchecked(mul ^ ((uint)MakeSeq(k) + 0x75A02419u) ^ 0x68BEF515u);
+        // 10.8 CryNetwork.dll: 0x3955AEBC (+0x75A02428), 0x3955AEC6 (^0x7FF5C43F)
+        var cry = unchecked(mul ^ ((uint)MakeSeq(k) + 0x75A02428u) ^ 0x7FF5C43Fu);
 
         var offset = SeqOffset(k.CsSeq);
         var array = new byte[mBody.Length];

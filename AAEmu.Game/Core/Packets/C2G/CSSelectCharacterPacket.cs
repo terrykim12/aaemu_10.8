@@ -1,4 +1,4 @@
-﻿using AAEmu.Commons.Network;
+using AAEmu.Commons.Network;
 using AAEmu.Game.Core.Managers;
 using AAEmu.Game.Core.Managers.Id;
 using AAEmu.Game.Core.Managers.UnitManagers;
@@ -16,10 +16,20 @@ public class CSSelectCharacterPacket() : GamePacket(CSOffsets.CSSelectCharacterP
 {
     public override void Read(PacketStream stream)
     {
-        // SelectCharacterPacket body: "id" group { charId = 8-byte i64 } then "exit" bool.
-        // Char ids fit in u32, so cast down.
-        var characterId = (uint)stream.ReadUInt64();
-        _ = stream.ReadBoolean(); // exit (return-to-character-select flag)
+        // Support both 64-bit and 32-bit character id packet formats (10.0 vs 10.8)
+        uint characterId;
+        if (stream.Count - stream.Pos >= 9)
+        {
+            characterId = (uint)stream.ReadUInt64();
+            _ = stream.ReadBoolean(); // exit (return-to-character-select flag)
+        }
+        else
+        {
+            characterId = stream.ReadUInt32();
+            _ = stream.ReadBoolean();
+            if (stream.Count - stream.Pos > 0)
+                _ = stream.ReadByte();
+        }
 
         if (Connection.Characters.TryGetValue(characterId, out var character))
         {
@@ -78,7 +88,7 @@ public class CSSelectCharacterPacket() : GamePacket(CSOffsets.CSSelectCharacterP
             // null-derefs on player-frame show. The reference sends it ~4s after NotifyInGame — see
             // CSNotifyInGamePacket.
 
-            Connection.SendPacket(new SCCharacterGamePointsPacket(character));
+            // Connection.SendPacket(new SCCharacterGamePointsPacket(character));
             Connection.ActiveChar.Inventory.Send();
             // Reference emits prelim equipments here (after inventory contents) to initialize the client equipment
             // view before the player-frame renders.
@@ -100,7 +110,8 @@ public class CSSelectCharacterPacket() : GamePacket(CSOffsets.CSSelectCharacterP
             // the uninitialized structure when the matching UI window shows and crashes on load.
             Connection.SendPacket(new SCIncreasedFavoritePortalLimitPacket());
             Connection.SendPacket(new SCWorldRestrictOwnerChangePacket(false));
-            Connection.SendPacket(new SCPlayerGameDataPacket());
+            // SCPlayerGameDataPacket (0x39A = 922) exceeds 10.8 opcode table limit (0x38D = 909)
+            // Connection.SendPacket(new SCPlayerGameDataPacket());
             Connection.SendPacket(new SCInstanceVisitCountsPacket());
             Connection.SendPacket(new SCBattleFieldRecordsPacket());
             Connection.SendPacket(new SCFavoriteCraftsPacket());

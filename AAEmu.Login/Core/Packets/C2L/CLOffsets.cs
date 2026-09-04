@@ -19,4 +19,5 @@ public static class CLOffsets
     public const ushort CARequestAuthPWDPacket = 0x012;
     public const ushort CARequestVarifySNPacket = 0x013;
     public const ushort CAPongPacket = 0x014;
+    public const ushort CARequestTokenAuthPacket = 0x017;
 }

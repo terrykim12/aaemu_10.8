@@ -1,4 +1,4 @@
-﻿using AAEmu.Commons.Network;
+using AAEmu.Commons.Network;
 using AAEmu.Game.Core.Managers;
 using AAEmu.Game.Core.Network.Game;
 using AAEmu.Game.Core.Packets.G2C;
@@ -17,9 +17,8 @@ public class CSNotifyInGamePacket() : GamePacket(CSOffsets.CSNotifyInGamePacket,
     {
         Connection.ActiveChar.IsOnline = true;
 
-        // First packet the reference pushes once the context reaches INGAME — enables the client's gameplay
-        // feature/HUD systems before the player frame renders.
-        Connection.ActiveChar.SendPacket(new SCSystemFeatureStateListPacket());
+        // SCSystemFeatureStateListPacket (0x393 = 915) exceeds 10.8 opcode table limit (0x38D = 909)
+        // Connection.ActiveChar.SendPacket(new SCSystemFeatureStateListPacket());
 
         Connection.ActiveChar.Spawn();
 
@@ -40,7 +39,8 @@ public class CSNotifyInGamePacket() : GamePacket(CSOffsets.CSNotifyInGamePacket,
         // The player-frame event window shows during the post-NotifyInGame load and reads its event counts; the
         // client crashes on show without them. The reference server sends this (all-zero, no active events) at
         // world entry — emit it here so the window has data before it renders.
-        Connection.ActiveChar.SendPacket(new SCEventInfoCountPacket());
+        // [PHASE 1 DIAGNOSTIC] Temporarily disabled 0x2DD (which is SCUnitImpulsePacket in 10.8)
+        // Connection.ActiveChar.SendPacket(new SCEventInfoCountPacket());
 
         // World-level state for the GetWorldLevel HUD provider. Must be sent AFTER Spawn() (above): the client's
         // world-level manager binds this data to the local player unit, so the unit has to exist or the link

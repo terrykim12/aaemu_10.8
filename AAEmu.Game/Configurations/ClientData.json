@@ -1,6 +1,7 @@
-﻿{
+{
     "ClientData": {
         "Sources": [
+            "C:/Users/User/Documents/AA/AA 10.8.1.0/ArcheAge/game_pak",
             "ClientData",
             "ClientData/game_pak",
             "../../../../.server_files/AAEmu.Game/ClientData",

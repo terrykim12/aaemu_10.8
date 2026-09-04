@@ -25,15 +25,20 @@ public class CSAesXorKeyPacket() : GamePacket(CSOffsets.CSAesXorKeyPacket, 1)
         // (the S->C StoC cipher is keyless, so char-select renders without the C->S keys).
         try
         {
-            _ = stream.ReadInt32();              // AES blob length
-            _ = stream.ReadInt16();              // XOR blob length
+            var rawHex = Convert.ToHexString(stream.Buffer, 0, stream.Count);
+            NLog.LogManager.GetCurrentClassLogger().Info("[CRYPTO-DIAG] CSAesXorKeyPacket total stream length={0}, hex:\n{1}", stream.Count, rawHex);
+
+            var aesLen = stream.ReadInt32();              // AES blob length
+            var xorLen = stream.ReadInt16();              // XOR blob length
+            NLog.LogManager.GetCurrentClassLogger().Info("[CRYPTO-DIAG] CSAesXorKeyPacket aesLen={0}, xorLen={1}", aesLen, xorLen);
+
             var encAes = stream.ReadBytes(128);  // RSA-encrypted AES key
             var encXor = stream.ReadBytes(128);  // RSA-encrypted XOR head
             EncryptionManager.Instance.StoreClientKeys(encAes, encXor, Connection.AccountId, Connection.Id);
         }
-        catch (System.Exception)
+        catch (System.Exception ex)
         {
-            // ignore — proceed to char-select regardless
+            NLog.LogManager.GetCurrentClassLogger().Error(ex, "[CRYPTO-DIAG] CSAesXorKeyPacket read failed");
         }
 
         // Key exchange done — push the lobby / character-select data (encrypted, level 5).

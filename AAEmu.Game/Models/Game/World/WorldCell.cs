@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+using System.Numerics;
 using AAEmu.Game.Core.Managers.World;
 using AAEmu.Game.IO;
 using AAEmu.Game.Models.ClientData;
@@ -97,6 +97,13 @@ public class WorldCell
                 var pathX = (uint)(CellX * 4 + x);
                 var pathY = (uint)(CellY * 4 + y);
                 var pathFolder = $"{pathX:000}_{pathY:000}";
+
+                if (Template.PathBaiLoader.TryGetValue((pathX, pathY), out var existingLoader))
+                {
+                    BaiLoader[x, y] = existingLoader;
+                    continue;
+                }
+
                 var pathBaiLoader = new BaseBaiLoader(Template);
                 pathBaiLoader.LoadBaiFilesFromFolder(pathFolder); // (x != 0 || y != 0)
                 BaiLoader[x, y] = pathBaiLoader;

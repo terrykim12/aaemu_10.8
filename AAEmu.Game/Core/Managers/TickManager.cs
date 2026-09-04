@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using AAEmu.Commons.Utils;
 
 using NLog;
@@ -11,6 +11,8 @@ public class TickManager : Singleton<TickManager>, ITickManager
     public delegate void OnTickEvent(TimeSpan delta);
     public TickEventHandler OnTick { get; } = new();
     private bool DoTickLoop = true;
+    public static long CurrentTickId => s_tickId;
+    private static long s_tickId;
     private Thread TickThread;
 
     private void TickLoop()
@@ -19,6 +21,7 @@ public class TickManager : Singleton<TickManager>, ITickManager
         sw.Start();
         while (DoTickLoop)
         {
+            Interlocked.Increment(ref s_tickId);
             var before = sw.Elapsed;
             OnTick.Invoke();
             var time = sw.Elapsed - before;

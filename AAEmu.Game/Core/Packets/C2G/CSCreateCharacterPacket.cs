@@ -21,6 +21,7 @@ public class CSCreateCharacterPacket() : GamePacket(CSOffsets.CSCreateCharacterP
     //   introZoneId : u32
     public override void Read(PacketStream stream)
     {
+        var startPos = stream.Pos;
         var name = stream.ReadString();
         var race = (Race)stream.ReadByte();
         var gender = (Gender)stream.ReadByte();
@@ -29,13 +30,17 @@ public class CSCreateCharacterPacket() : GamePacket(CSOffsets.CSCreateCharacterP
             items[i] = stream.ReadUInt32();
 
         var customModel = new UnitCustomModelParams();
-        customModel.Read(stream); // ext-gated appearance (same serializer as the unit-state/lobby block)
+        customModel.Read(stream); // 10.8 ext-gated appearance
 
         var ability1 = (AbilityType)stream.ReadByte();
         var ability2 = (AbilityType)stream.ReadByte();
         var ability3 = (AbilityType)stream.ReadByte();
         var level = stream.ReadByte();
-        _ = stream.ReadUInt32(); // introZoneId
+        var introZoneId = stream.ReadUInt32();
+
+        var consumed = stream.Pos - startPos;
+        var remaining = stream.Count - stream.Pos;
+        Logger.Info($"[CREATE-CHAR-DIAG] Name='{name}', Race={race}, Gender={gender}, Ability={ability1}/{ability2}/{ability3}, Level={level}, IntroZone=0x{introZoneId:X}, Consumed={consumed}, Remaining={remaining}, TotalLogicalLen={stream.Count}");
 
         CharacterManager.Instance.Create(Connection, name, race, gender, items, customModel, ability1, ability2, ability3, level);
     }

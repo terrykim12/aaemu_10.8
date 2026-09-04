@@ -156,8 +156,7 @@ public class WorldManager(
     /// <param name="delta"></param>
     private void ActiveRegionTick(TimeSpan delta)
     {
-        var sw = new Stopwatch();
-        sw.Start();
+        var sw = Stopwatch.StartNew();
 
         // Players
         foreach (var character in GetAllCharacters())
@@ -172,46 +171,13 @@ public class WorldManager(
             // Vehicles
             foreach (var slave in world.GetAllSlaves())
                 slave.OnActiveRegionTick(delta);
-
-            // Proximity-based NPC streaming. Respects World.SpawnNpcs so the diagnostic toggle
-            // also suppresses on-demand spawns, not just the initial bulk pass.
-            if (AppConfiguration.Instance.World.SpawnNpcs)
-            {
-                var npcSpawners = world.SpawnManager.GetAllSpawners();
-
-                // Spawner filtering
-                if (sw.ElapsedMilliseconds > 50)
-                {
-                    Logger.Debug($"Processed in world {world.Template.Name} {npcSpawners.Count} spawners...");
-                }
-
-                var activeSpawners = npcSpawners.Values.SelectMany(x => x)
-                    .Where(spawner => spawner.Template != null && IsSpawnerActive(spawner))
-                    .ToList();
-
-                // Consistent processing of spawners
-                if (sw.ElapsedMilliseconds > 50)
-                {
-                    Logger.Debug($"Processed {activeSpawners.Count} active spawners...");
-                }
-
-                foreach (var npcSpawner in activeSpawners)
-                {
-                    npcSpawner.Update();
-                }
-            }
         }
 
         sw.Stop();
-        if (sw.ElapsedMilliseconds > 100)
+        if (sw.ElapsedMilliseconds > 50)
         {
-            Logger.Warn($"ActiveRegionTick took {sw.ElapsedMilliseconds} ms");
+            Logger.Warn($"[TICK-PROFILER] ActiveRegionTick took {sw.ElapsedMilliseconds} ms");
         }
-    }
-
-    private bool IsSpawnerActive(NpcSpawner spawner)
-    {
-        return spawner.IsPlayerInSpawnRadius();
     }
 
     /// <summary>

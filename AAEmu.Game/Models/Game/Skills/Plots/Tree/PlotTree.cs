@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using AAEmu.Game.Core.Managers.Id;
 using AAEmu.Game.Core.Packets;
 using AAEmu.Game.Core.Packets.G2C;
@@ -49,14 +49,15 @@ public class PlotTree(uint plotId)
                 {
                     if (state.IsCasting)
                     {
-                        state.Caster.BroadcastPacket(
-                            new SCPlotCastingStoppedPacket(state.ActiveSkill.TlId, 0, lastEvent),
-                            true
-                        );
-                        state.Caster.BroadcastPacket(
-                        new SCPlotChannelingStoppedPacket(state.ActiveSkill.TlId, 0, 1),
-                        true
-                        );
+                        // Note: Unverified in 10.8, causes zip packet parsing crash
+                        // state.Caster.BroadcastPacket(
+                        //     new SCPlotCastingStoppedPacket(state.ActiveSkill.TlId, 0, lastEvent),
+                        //     true
+                        // );
+                        // state.Caster.BroadcastPacket(
+                        // new SCPlotChannelingStoppedPacket(state.ActiveSkill.TlId, 0, 1),
+                        // true
+                        // );
                     }
 
                     DoPlotEnd(state);
@@ -245,7 +246,8 @@ public class PlotTree(uint plotId)
 
     private static void DoPlotEnd(PlotState state)
     {
-        state.Caster?.BroadcastPacket(new SCPlotEndedPacket(state.ActiveSkill.TlId), true);
+        // Note: Unverified in 10.8
+        // state.Caster?.BroadcastPacket(new SCPlotEndedPacket(state.ActiveSkill.TlId), true);
         EndPlotChannel(state);
 
         state.Caster?.Cooldowns.AddCooldown(state.ActiveSkill.Template.Id, (uint)state.ActiveSkill.Template.CooldownTime);

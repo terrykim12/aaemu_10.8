@@ -877,15 +877,26 @@ public class Doodad : BaseUnit
     /// <summary>
     /// Doodad packet stream
     /// </summary>
+    /// <summary>
+    /// Writes this Doodad to packet stream (ArcheAge 10.8 wire format).
+    /// </summary>
     /// <param name="stream"></param>
     /// <returns></returns>
     public PacketStream Write(PacketStream stream)
     {
-        stream.WriteBc(ObjId); //The object # in the list
-        stream.Write(TemplateId); //The template id needed for that object, the client then uses the template configurations, not the server
-        stream.WriteBc(OwnerObjId); //The creator of the object
-        stream.WriteBc(ParentObjId); //Things like boats or cars,
-        stream.Write((byte)AttachPoint); // attachPoint, relative to the parentObj (Door or window on a house, seats on carriage, etc.)
+        stream.WriteBc(ObjId); // 1. ObjId (3 bytes)
+        stream.WritePisc(TemplateId, FuncGroupId, ItemTemplateId, QuestGlow); // 2. pisc group (TemplateId, FuncGroupId, ItemTemplateId, QuestGlow)
+
+        // 3. flag byte: bit 2 = hasLootItem
+        var hasLootItem = CurrentFuncs.Count > 0 && CurrentFuncs.All(func => IsFuncDrivenLootFunc(func.FuncType));
+        byte flag = (byte)(hasLootItem ? (1 << 2) : 0);
+        stream.Write(flag);
+
+        stream.WriteBc(OwnerObjId); // 4. OwnerObjId (3 bytes)
+        stream.WriteBc(ParentObjId); // 5. ParentObjId (3 bytes)
+        stream.Write((byte)AttachPoint); // 6. attachPoint (1 byte)
+
+        // 7. Position & 8. Rotation
         if (AttachPoint > 0 || ParentObjId > 0)
         {
             stream.WritePosition(Transform.Local.Position.X, Transform.Local.Position.Y, Transform.Local.Position.Z);
@@ -903,29 +914,35 @@ public class Doodad : BaseUnit
             stream.Write(yaw);
         }
 
-        stream.Write(Scale); //The size of the object
-        // Mark doodad as lootable for client UI (gear icon) ONLY when its current phase is exclusively driven by
-        // loot/recover funcs. If the group also contains non-loot interaction funcs (CraftPack, StoreUi, Use, etc.),
-        // the doodad must keep the normal interaction wheel (F/G/H...). Otherwise the client would route every
-        // interaction through CSLootOpenBagPacket -> doodad.Use(skillId=0) and silently break workshops/shops while
-        // accidentally despawning them (RecoverItem with NextPhase=-1 deletes the doodad). This restriction keeps
-        // pickup working for trade packs, chests and crafting tables stored in the world (single-RecoverItem groups)
-        // while preserving multi-action doodads (workshops with CraftPack+StoreUi+RecoverItem).
-        var hasLootItem = CurrentFuncs.Count > 0 && CurrentFuncs.All(func => IsFuncDrivenLootFunc(func.FuncType));
-        stream.Write(hasLootItem); // hasLootItem
-        stream.Write(FuncGroupId); // doodad_func_group_id
-        stream.Write(OwnerId); // characterId (Database relative)
-        stream.Write(UccId);
-        stream.Write(ItemTemplateId);
-        stream.Write(Type2); //??type2
-        stream.Write(TimeLeft); // growing
-        stream.Write(PlantTime); //Time stamp of when it was planted
-        stream.Write(QuestGlow); //When this is higher than 0 it shows a blue orb over the doodad
-        stream.Write(0); // family TODO
-        stream.Write(PuzzleGroup); // puzzleGroup /for instances maybe?
-        stream.Write((byte)OwnerType); // ownerType
-        stream.Write(OwnerDbId); // dbHouseId
-        stream.Write(Data); // data
+        stream.Write(Scale); // 9. scale (float)
+        stream.Write((ulong)OwnerId); // 10. OwnerId (uint64)
+        stream.Write((ulong)UccId); // 11. UccId (uint64)
+        stream.Write((uint)Type2); // 12. Type2 (uint32)
+        stream.Write((uint)TimeLeft); // 13. growing (uint32)
+        stream.Write(PlantTime); // 14. plantTime (uint64 timestamp)
+        stream.Write((int)0); // 15. family (int32)
+        stream.Write((int)PuzzleGroup); // 16. puzzleGroup (int32)
+        stream.Write((byte)OwnerType); // 17. ownerType (uint8)
+        stream.Write((uint)OwnerDbId); // 18. dbHouseId (uint32)
+        stream.Write((int)Data); // 19. data (int32)
+        stream.Write((int)0); // 20. data2 (int32, new 10.8 field)
+        stream.Write((long)0); // 21. updatedTime (int64/uint64, new 10.8 field)
+
+        // 22. Perishable / freshness block (conditional)
+        if (ItemTemplateId > 0)
+        {
+            var itemTemplate = ItemManager.Instance.GetTemplate(ItemTemplateId);
+            if (itemTemplate != null && (itemTemplate.CategoryId == 3 || itemTemplate.CategoryId == 8))
+            {
+                stream.Write((ulong)0); // freshnessTime (uint64)
+                stream.Write((ulong)0); // type (uint64)
+                stream.Write((ushort)0); // type (uint16)
+            }
+        }
+
+        // 23 & 24. Two trailing uint64s (new 10.8 fields)
+        stream.Write((ulong)0);
+        stream.Write((ulong)0);
 
         return stream;
     }

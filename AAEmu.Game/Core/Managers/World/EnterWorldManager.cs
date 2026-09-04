@@ -1,4 +1,4 @@
-﻿using AAEmu.Commons.Utils;
+using AAEmu.Commons.Utils;
 using AAEmu.Game.Core.Managers;
 using AAEmu.Game.Core.Network.Connections;
 using AAEmu.Game.Core.Network.Login;
@@ -45,7 +45,7 @@ public class EnterWorldManager(
             connection.SendPacket(new GLPlayerEnterPacket(connectionId, gsId, 1));
         else
         {
-            _accounts.Add(connectionId, accountId);
+            _accounts[connectionId] = accountId;
             connection.SendPacket(new GLPlayerEnterPacket(connectionId, gsId, 0));
         }
     }

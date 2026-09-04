@@ -1,4 +1,4 @@
-﻿using AAEmu.Commons.Network;
+using AAEmu.Commons.Network;
 using AAEmu.Game.Core.Network.Game;
 using AAEmu.Game.Core.Packets.G2C;
 
@@ -22,6 +22,7 @@ public class CSInteractNPCPacket() : GamePacket(CSOffsets.CSInteractNPCPacket, 1
             Connection.ActiveChar.CurrentTarget = unit;
         }
 
-        Connection.SendPacket(new SCAiAggroPacket(objId, 0)); // TODO проверить count=1
+        // Note: SCAiAggroPacket opcode 0x23F in 10.8 is invalid/mismatched and causes client sc error.
+        // Connection.SendPacket(new SCAiAggroPacket(objId, 0));
     }
 }

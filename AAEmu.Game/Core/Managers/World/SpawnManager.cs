@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+using System.Numerics;
 
 using AAEmu.Commons.Exceptions;
 using AAEmu.Commons.IO;
@@ -325,6 +325,15 @@ public class SpawnManager(WorldInstance parentWorld)
         // Start timers
         var respawnThread = new Thread(CheckRespawns) { Name = $"RespawnThread_{World.Id}_{World.Template.Id}" };
         respawnThread.Start();
+
+        // Duplicate check report for SpawnerIds
+        var allSpawners = NpcSpawners.Values.SelectMany(x => x).ToList();
+        var duplicates = allSpawners.GroupBy(s => s.SpawnerId).Where(g => g.Count() > 1).ToList();
+        Logger.Info($"[SPAWN-DUP-CHECK] Loaded {allSpawners.Count} spawners ({allSpawners.Select(s => s.SpawnerId).Distinct().Count()} unique SpawnerIds). Found {duplicates.Count} duplicate SpawnerIds.");
+        foreach (var g in duplicates.Where(g => g.Key == 2482 || g.Key == 2484 || g.Count() > 10))
+        {
+            Logger.Info($"[SPAWN-DUP-CHECK] SpawnerId {g.Key} (UnitId {g.First().UnitId}) -> entries {g.Count()}");
+        }
 
         _loaded = true;
     }

@@ -1,4 +1,4 @@
-﻿using AAEmu.Commons.Network;
+using AAEmu.Commons.Network;
 
 namespace AAEmu.Game.Models.Game.Units.Movements;
 
@@ -11,6 +11,7 @@ public class VehicleMoveType : MoveType
     public float AngVelY { get; set; }
     public float AngVelZ { get; set; }
     public float Steering { get; set; }
+    public sbyte Throttle { get; set; }
     public List<float> WheelAngVel { get; set; } = [];
 
     public override void Read(PacketStream stream)
@@ -28,6 +29,7 @@ public class VehicleMoveType : MoveType
         AngVelY = stream.ReadSingle();
         AngVelZ = stream.ReadSingle();
         Steering = stream.ReadSingle();
+        Throttle = stream.ReadSByte();
         var wheelAngs = stream.ReadByte();
         for (var i = 0; i < wheelAngs; i++)
         {
@@ -50,6 +52,7 @@ public class VehicleMoveType : MoveType
         stream.Write(AngVelY);
         stream.Write(AngVelZ);
         stream.Write(Steering);
+        stream.Write(Throttle);
         stream.Write((byte)WheelAngVel.Count);
         foreach (var f in WheelAngVel)
         {

@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using AAEmu.Game.Core.Packets;
 using AAEmu.Game.Core.Packets.G2C;
 using AAEmu.Game.Models.Game.Skills.Static;
@@ -94,6 +94,9 @@ public class PlotNode
 
             var targetCount = (byte)targetInfo.EffectedTargets.Count;
 
+            // Note: SCPlotEventPacket (0x338) in 10.8 causes client "failed to handle zip packets" crash.
+            // Disabled until 10.8 opcode & layout are verified.
+            /*
             var packet = new SCPlotEventPacket(skill.TlId, Event.Id, skill.Template.Id, casterPlotObj,
                 targetPlotObj, unkId, (ushort)castTime, flag, 0, targetCount);
 
@@ -101,6 +104,7 @@ public class PlotNode
                 packets.AddPacket(packet);
             else
                 state.Caster.BroadcastPacket(packet, true);
+            */
 
             Logger.Trace($"Execute Took {stopwatch.ElapsedMilliseconds} to finish.");
         }

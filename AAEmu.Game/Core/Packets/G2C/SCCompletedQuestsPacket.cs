@@ -14,8 +14,9 @@ public class SCCompletedQuestsPacket(CompletedQuest[] quests) : GamePacket(SCOff
             var body = new byte[8];
             quest.Body.CopyTo(body, 0);
 
-            stream.Write(quest.Id); // idx
-            stream.Write(body); // body
+            var blockIndex = (uint)quest.Id;
+            stream.Write(blockIndex); // idx (int32, 4 bytes)
+            stream.Write(body); // body (8 bytes)
         }
         return stream;
     }

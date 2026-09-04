@@ -266,17 +266,26 @@ public class SCUnitStatePacket : GamePacket
         var hiddenBuffs = new List<Buff>();
         _unit.Buffs.GetAllBuffs(goodBuffs, badBuffs, hiddenBuffs, false);
 
-        stream.Write((byte)Math.Min(goodBuffs.Count, 32));
-        foreach (var effect in goodBuffs.Take(32))
-            WriteBuff(stream, effect);
+        if (_baseUnitType == BaseUnitType.Npc)
+        {
+            stream.Write((byte)0);
+            stream.Write((byte)0);
+            stream.Write((byte)0);
+        }
+        else
+        {
+            stream.Write((byte)Math.Min(goodBuffs.Count, 32));
+            foreach (var effect in goodBuffs.Take(32))
+                WriteBuff(stream, effect);
 
-        stream.Write((byte)Math.Min(badBuffs.Count, 20));
-        foreach (var effect in badBuffs.Take(20))
-            WriteBuff(stream, effect);
+            stream.Write((byte)Math.Min(badBuffs.Count, 20));
+            foreach (var effect in badBuffs.Take(20))
+                WriteBuff(stream, effect);
 
-        stream.Write((byte)Math.Min(hiddenBuffs.Count, 28));
-        foreach (var effect in hiddenBuffs.Take(28))
-            WriteBuff(stream, effect);
+            stream.Write((byte)Math.Min(hiddenBuffs.Count, 28));
+            foreach (var effect in hiddenBuffs.Take(28))
+                WriteBuff(stream, effect);
+        }
 
         return stream;
     }

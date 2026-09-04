@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Net;
 using System.Text;
 using AAEmu.Commons.Models;
@@ -185,7 +185,7 @@ public sealed class LoginConnection : ILoginConnectionOwner
     {
         foreach (var character in characterInfos)
             character.GsId = gsId.Value;
-        Characters.Add(gsId, characterInfos);
+        Characters[gsId] = characterInfos;
     }
 
     private void HandleUnknownPacket(uint type, PacketStream stream)

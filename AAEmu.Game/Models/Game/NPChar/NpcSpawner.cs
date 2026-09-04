@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Numerics;
 using AAEmu.Commons.Utils;
@@ -532,9 +532,14 @@ public class NpcSpawner : Spawner<Npc>
 
         // Если кэш устарел или отсутствует, выполняем проверку
         var players = WorldManager.Instance.GetAllCharacters();
+        var maxR = Math.Max(testRadiusPc * 50f, 150f);
         foreach (var player in players)
         {
-            var distance = Vector3.DistanceSquared(player.Transform.World.Position, new Vector3(Position.X, Position.Y, Position.Z));
+            var pPos = player.Transform.World.Position;
+            if (Math.Abs(pPos.X - Position.X) > maxR || Math.Abs(pPos.Y - Position.Y) > maxR)
+                continue;
+
+            var distance = Vector3.DistanceSquared(pPos, new Vector3(Position.X, Position.Y, Position.Z));
             if (distance <= testRadius)
             {
                 // Обновляем кэш
@@ -989,6 +994,19 @@ public class NpcSpawner : Spawner<Npc>
             Logger.Error($"[Spawn] Can't spawn npc {UnitId} from spawnerId {Id} - Template is null");
             return;
         }
+
+        var caller = new System.Diagnostics.StackTrace(1, false).GetFrame(0)?.GetMethod()?.Name ?? "unknown";
+        var isSpawned = CurrentSpawnCount > 0;
+        var regionId = Position != null ? WorldManager.Instance.GetZoneId(ParentWorld?.Template, Position.X, Position.Y) : 0;
+        var tickId = Core.Managers.TickManager.CurrentTickId;
+        Logger.Info($"[SPAWN-DIAG] SpawnerId={SpawnerId}, UnitId={UnitId}, TemplateId={Template.Id}, WorldId={ParentWorld?.Id}, RegionId={regionId}, InstanceHash={GetHashCode()}, IsSpawned={isSpawned}, CurrentSpawnCount={CurrentSpawnCount}, Caller={caller}, TickId={tickId}");
+
+        if (isSpawned)
+        {
+            Logger.Warn($"[SPAWN-GUARD] SpawnerId={SpawnerId}, UnitId={UnitId} already has {CurrentSpawnCount} spawned NPCs. Guarding against duplicate spawn.");
+            return;
+        }
+
         Logger.Debug($"[Spawn] Starting spawn process for SpawnerId={SpawnerId}, UnitId={UnitId}, Template={Template.Id}");
 
         // Check population limits
