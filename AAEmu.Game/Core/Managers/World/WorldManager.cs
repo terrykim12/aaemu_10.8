@@ -1188,7 +1188,7 @@ public class WorldManager : Singleton<WorldManager>, IWorldManager
         // showing it once
         if (questId > 0 && !character.Quests.HasQuest(questId) && !character.Quests.HasQuestCompleted(questId))
         {
-            character.Quests.Add(questId);
+            character.Quests.Add(questId, true);
         }
     }
 

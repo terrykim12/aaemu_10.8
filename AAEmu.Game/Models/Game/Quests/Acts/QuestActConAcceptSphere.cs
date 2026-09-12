@@ -1,4 +1,4 @@
-﻿using AAEmu.Game.Models.Game.Char;
+using AAEmu.Game.Models.Game.Char;
 using AAEmu.Game.Models.Game.Quests.Static;
 using AAEmu.Game.Models.Game.Quests.Templates;
 
@@ -15,6 +15,6 @@ public class QuestActConAcceptSphere : QuestActTemplate
         quest.QuestAcceptorType = QuestAcceptorType.Sphere;
         quest.AcceptorType = SphereId;
 
-        return false;
+        return true;
     }
 }

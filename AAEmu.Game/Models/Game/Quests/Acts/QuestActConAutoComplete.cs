@@ -1,4 +1,4 @@
-﻿using AAEmu.Game.Models.Game.Char;
+using AAEmu.Game.Models.Game.Char;
 using AAEmu.Game.Models.Game.Quests.Templates;
 
 namespace AAEmu.Game.Models.Game.Quests.Acts;
@@ -9,6 +9,6 @@ public class QuestActConAutoComplete : QuestActTemplate
     {
         Logger.Warn("QuestActConAutoComplete");
 
-        return character.Quests.IsQuestComplete(quest.TemplateId);
+        return true;
     }
 }

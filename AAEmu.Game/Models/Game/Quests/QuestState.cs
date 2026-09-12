@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -1290,7 +1290,7 @@ public class QuestReadyState : QuestState
                         {
                             //Quest.Owner.Events.OnQuestComplete += Quest.Owner.Quests.OnQuestCompleteHandler;
                             Logger.Info($"[QuestReadyState][Start] Quest: {Quest.TemplateId}, Event: 'OnQuestComplete', Handle: 'OnEventsOnQuestComplete'");
-                            results2.Add(false); // будем ждать события
+                            results2.Add(true);
                             break;
                         }
                 }
