@@ -1,4 +1,4 @@
-﻿using AAEmu.Commons.Network;
+using AAEmu.Commons.Network;
 using AAEmu.Game.Core.Network.Game;
 using AAEmu.Game.Models.Game.Char;
 
@@ -15,6 +15,6 @@ public class SCCreateCharacterResponsePacket : GamePacket
 
     public override PacketStream Write(PacketStream stream)
     {
-        return _character.Write(stream);
+        return _character.WriteLobby1013(stream);
     }
 }

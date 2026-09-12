@@ -1,4 +1,4 @@
-﻿
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -7,6 +7,7 @@ using System.Drawing;
 using System.Threading;
 using System.Threading.Tasks;
 
+using AAEmu.Commons.Exceptions;
 using AAEmu.Commons.Network;
 using AAEmu.Commons.Utils;
 using AAEmu.Commons.Utils.DB;
@@ -99,7 +100,7 @@ public partial class Character : Unit, ICharacter
 
     public CharacterVisualOptions VisualOptions { get; set; }
 
-    public const int MaxActionSlots = 121; // 85 in 1.2, 121 in 3.0.3.0, 133 in 3.5.0.3
+    public const int MaxActionSlots = 217; // 85 in 1.2, 121 in 3.0.3.0, 133 in 3.5.0.3, 217 in 10.8.1.0 r651723
     public ActionSlot[] Slots { get; set; }
     public Inventory Inventory { get; set; }
     public byte NumInventorySlots { get; set; }
@@ -1913,9 +1914,41 @@ public partial class Character : Unit, ICharacter
             {
                 if (reader.Read())
                 {
-                    var stream = (PacketStream)(byte[])reader.GetValue("unit_model_params");
-                    var modelParams = new UnitCustomModelParams();
-                    modelParams.Read(stream);
+                    var rawBytes = reader.GetValue("unit_model_params") as byte[];
+                    UnitCustomModelParams modelParams;
+
+                    if (rawBytes != null && rawBytes.Length > 0 && rawBytes.Length != 266)
+                    {
+                        try
+                        {
+                            modelParams = UnitCustomModelParams.ReadStored(rawBytes);
+                        }
+                        catch (Exception ex) when (ex is MarshalException || ex is OverflowException || ex is IndexOutOfRangeException || ex is FormatException)
+                        {
+                            Logger.Warn(ex, "Character {0} unit_model_params failed to deserialize (current format); using default model params.", characterId);
+                            modelParams = new UnitCustomModelParams(UnitCustomModelType.Face);
+                        }
+                    }
+                    else if (rawBytes != null && rawBytes.Length == 266)
+                    {
+                        try
+                        {
+                            Logger.Info("Character {0} unit_model_params legacy format detected: 266 bytes; loading as v10 legacy format.", characterId);
+                            var stream = new PacketStream(rawBytes);
+                            modelParams = new UnitCustomModelParams();
+                            modelParams.ReadLegacy266(stream);
+                        }
+                        catch (Exception ex) when (ex is MarshalException || ex is OverflowException || ex is IndexOutOfRangeException || ex is FormatException)
+                        {
+                            Logger.Warn(ex, "Character {0} unit_model_params legacy format failed to deserialize (266 bytes); using default model params.", characterId);
+                            modelParams = new UnitCustomModelParams(UnitCustomModelType.Face);
+                        }
+                    }
+                    else
+                    {
+                        Logger.Warn("Character {0} unit_model_params has unsupported length {1}; using default model params.", characterId, rawBytes?.Length);
+                        modelParams = new UnitCustomModelParams(UnitCustomModelType.Face);
+                    }
 
                     character = new Character(modelParams);
                     character.AccountId = accountId;
@@ -1924,13 +1957,24 @@ public partial class Character : Unit, ICharacter
                     character.AccessLevel = reader.GetInt32("access_level");
                     character.Race = (Race)reader.GetByte("race");
                     character.Gender = (Gender)reader.GetByte("gender");
+                    var template = CharacterManager.Instance.GetTemplate((byte)character.Race, (byte)character.Gender);
+                    if (template != null)
+                    {
+                        character.ModelId = template.ModelId;
+                        character.TemplateId = template.Id;
+                    }
+                    if (character.ModelParams.Race == 0)
+                    {
+                        character.ModelParams.Race = (byte)character.Race;
+                        character.ModelParams.Gender = (byte)character.Gender;
+                        character.ModelParams.VisualRace = (byte)character.Race;
+                        character.ModelParams.VisualGender = (byte)character.Gender;
+                    }
                     character.Level = reader.GetByte("level");
                     character.Experience = reader.GetInt32("experience");
                     character.RecoverableExp = reader.GetInt32("recoverable_exp");
                     character.Hp = reader.GetInt32("hp");
                     character.Mp = reader.GetInt32("mp");
-                    character.LaborPower = reader.GetInt16("labor_power");
-                    character.LaborPowerModified = reader.GetDateTime("labor_power_modified");
                     character.ConsumedLaborPower = reader.GetInt32("consumed_lp");
                     character.Ability1 = (AbilityType)reader.GetByte("ability1");
                     character.Ability2 = (AbilityType)reader.GetByte("ability2");
@@ -1961,7 +2005,6 @@ public partial class Character : Unit, ICharacter
                     character.TransferRequestTime = reader.GetDateTime("transfer_request_time");
                     character.DeleteRequestTime = reader.GetDateTime("delete_request_time");
                     character.DeleteTime = reader.GetDateTime("delete_time");
-                    character.BmPoint = reader.GetInt32("bm_point");
                     character.AutoUseAAPoint = reader.GetBoolean("auto_use_aapoint");
                     character.PrevPoint = reader.GetInt32("prev_point");
                     character.Point = reader.GetInt32("point");
@@ -2022,9 +2065,41 @@ public partial class Character : Unit, ICharacter
             {
                 if (reader.Read())
                 {
-                    var stream = (PacketStream)(byte[])reader.GetValue("unit_model_params");
-                    var modelParams = new UnitCustomModelParams();
-                    modelParams.Read(stream);
+                    var rawBytes = reader.GetValue("unit_model_params") as byte[];
+                    UnitCustomModelParams modelParams;
+
+                    if (rawBytes != null && rawBytes.Length > 0 && rawBytes.Length != 266)
+                    {
+                        try
+                        {
+                            modelParams = UnitCustomModelParams.ReadStored(rawBytes);
+                        }
+                        catch (Exception ex) when (ex is MarshalException || ex is OverflowException || ex is IndexOutOfRangeException || ex is FormatException)
+                        {
+                            Logger.Warn(ex, "Character {0} unit_model_params failed to deserialize (current format); using default model params.", characterId);
+                            modelParams = new UnitCustomModelParams(UnitCustomModelType.Face);
+                        }
+                    }
+                    else if (rawBytes != null && rawBytes.Length == 266)
+                    {
+                        try
+                        {
+                            Logger.Info("Character {0} unit_model_params legacy format detected: 266 bytes; loading as v10 legacy format.", characterId);
+                            var stream = new PacketStream(rawBytes);
+                            modelParams = new UnitCustomModelParams();
+                            modelParams.ReadLegacy266(stream);
+                        }
+                        catch (Exception ex) when (ex is MarshalException || ex is OverflowException || ex is IndexOutOfRangeException || ex is FormatException)
+                        {
+                            Logger.Warn(ex, "Character {0} unit_model_params legacy format failed to deserialize (266 bytes); using default model params.", characterId);
+                            modelParams = new UnitCustomModelParams(UnitCustomModelType.Face);
+                        }
+                    }
+                    else
+                    {
+                        Logger.Warn("Character {0} unit_model_params has unsupported length {1}; using default model params.", characterId, rawBytes?.Length);
+                        modelParams = new UnitCustomModelParams(UnitCustomModelType.Face);
+                    }
 
                     character = new Character(modelParams);
                     character.Id = reader.GetUInt32("id");
@@ -2033,13 +2108,24 @@ public partial class Character : Unit, ICharacter
                     character.AccessLevel = reader.GetInt32("access_level");
                     character.Race = (Race)reader.GetByte("race");
                     character.Gender = (Gender)reader.GetByte("gender");
+                    var template = CharacterManager.Instance.GetTemplate((byte)character.Race, (byte)character.Gender);
+                    if (template != null)
+                    {
+                        character.ModelId = template.ModelId;
+                        character.TemplateId = template.Id;
+                    }
+                    if (character.ModelParams.Race == 0)
+                    {
+                        character.ModelParams.Race = (byte)character.Race;
+                        character.ModelParams.Gender = (byte)character.Gender;
+                        character.ModelParams.VisualRace = (byte)character.Race;
+                        character.ModelParams.VisualGender = (byte)character.Gender;
+                    }
                     character.Level = reader.GetByte("level");
                     character.Experience = reader.GetInt32("experience");
                     character.RecoverableExp = reader.GetInt32("recoverable_exp");
                     character.Hp = reader.GetInt32("hp");
                     character.Mp = reader.GetInt32("mp");
-                    character.LaborPower = reader.GetInt16("labor_power");
-                    character.LaborPowerModified = reader.GetDateTime("labor_power_modified");
                     character.ConsumedLaborPower = reader.GetInt32("consumed_lp");
                     character.Ability1 = (AbilityType)reader.GetByte("ability1");
                     character.Ability2 = (AbilityType)reader.GetByte("ability2");
@@ -2070,7 +2156,6 @@ public partial class Character : Unit, ICharacter
                     character.TransferRequestTime = reader.GetDateTime("transfer_request_time");
                     character.DeleteRequestTime = reader.GetDateTime("delete_request_time");
                     character.DeleteTime = reader.GetDateTime("delete_time");
-                    character.BmPoint = reader.GetInt32("bm_point");
                     character.AutoUseAAPoint = reader.GetBoolean("auto_use_aapoint");
                     character.PrevPoint = reader.GetInt32("prev_point");
                     character.Point = reader.GetInt32("point");
@@ -2114,6 +2199,13 @@ public partial class Character : Unit, ICharacter
 
         foreach (var slot in Slots)
         {
+            if (slotsBlob == null || slotsBlob.LeftBytes <= 0)
+            {
+                slot.Type = ActionSlotType.None;
+                slot.ActionId = 0;
+                continue;
+            }
+
             slot.Type = (ActionSlotType)slotsBlob.ReadByte();
             switch (slot.Type)
             {
@@ -2125,11 +2217,23 @@ public partial class Character : Unit, ICharacter
                 case ActionSlotType.Spell:
                 case ActionSlotType.RidePetSpell:
                     {
+                        if (slotsBlob.LeftBytes < 4)
+                        {
+                            slot.Type = ActionSlotType.None;
+                            slot.ActionId = 0;
+                            break;
+                        }
                         slot.ActionId = slotsBlob.ReadUInt32();
                         break;
                     }
                 case ActionSlotType.ItemId:
                     {
+                        if (slotsBlob.LeftBytes < 8)
+                        {
+                            slot.Type = ActionSlotType.None;
+                            slot.ActionId = 0;
+                            break;
+                        }
                         slot.ActionId = slotsBlob.ReadUInt64(); // itemId
                         break;
                     }
@@ -2206,7 +2310,8 @@ public partial class Character : Unit, ICharacter
     public void Load()
     {
         var template = CharacterManager.Instance.GetTemplate((byte)Race, (byte)Gender);
-        ModelId = template.ModelId;
+        ModelId = template?.ModelId ?? 17;
+        TemplateId = template?.Id ?? 1;
         BuyBackItems = new ItemContainer(Id, SlotType.None, false);
         Slots = new ActionSlot[MaxActionSlots];
         for (var i = 0; i < Slots.Length; i++)
@@ -2259,6 +2364,8 @@ public partial class Character : Unit, ICharacter
                 try
                 {
                     saved = Save(sqlConnection, transaction);
+                    if (saved)
+                        ItemManager.Instance.Save(sqlConnection, transaction);
                     transaction.Commit();
                 }
                 catch (Exception e)
@@ -2298,19 +2405,19 @@ public partial class Character : Unit, ICharacter
                 command.CommandText =
                     "REPLACE INTO `characters` " +
                     "(`id`,`account_id`,`name`,`access_level`,`race`,`gender`,`unit_model_params`,`level`,`experience`,`recoverable_exp`," +
-                    "`hp`,`mp`,`labor_power`,`labor_power_modified`,`consumed_lp`,`ability1`,`ability2`,`ability3`," +
+                    "`hp`,`mp`,`consumed_lp`,`ability1`,`ability2`,`ability3`," +
                     "`world_id`,`zone_id`,`x`,`y`,`z`,`roll`,`pitch`,`yaw`," +
                     "`faction_id`,`faction_name`,`expedition_id`,`family`,`dead_count`,`dead_time`,`rez_wait_duration`,`rez_time`,`rez_penalty_duration`,`leave_time`," +
                     "`money`,`money2`,`honor_point`,`vocation_point`,`crime_point`,`crime_record`," +
-                    "`delete_request_time`,`transfer_request_time`,`delete_time`,`bm_point`,`auto_use_aapoint`,`prev_point`,`point`,`gift`," +
+                    "`delete_request_time`,`transfer_request_time`,`delete_time`,`auto_use_aapoint`,`prev_point`,`point`,`gift`," +
                     "`num_inv_slot`,`num_bank_slot`,`expanded_expert`,`slots`,`created_at`,`updated_at`,`return_district`" +
                     ") VALUES (" +
                     "@id,@account_id,@name,@access_level,@race,@gender,@unit_model_params,@level,@experience,@recoverable_exp," +
-                    "@hp,@mp,@labor_power,@labor_power_modified,@consumed_lp,@ability1,@ability2,@ability3," +
+                    "@hp,@mp,@consumed_lp,@ability1,@ability2,@ability3," +
                     "@world_id,@zone_id,@x,@y,@z,@yaw,@pitch,@roll," +
                     "@faction_id,@faction_name,@expedition_id,@family,@dead_count,@dead_time,@rez_wait_duration,@rez_time,@rez_penalty_duration,@leave_time," +
                     "@money,@money2,@honor_point,@vocation_point,@crime_point,@crime_record," +
-                    "@delete_request_time,@transfer_request_time,@delete_time,@bm_point,@auto_use_aapoint,@prev_point,@point,@gift," +
+                    "@delete_request_time,@transfer_request_time,@delete_time,@auto_use_aapoint,@prev_point,@point,@gift," +
                     "@num_inv_slot,@num_bank_slot,@expanded_expert,@slots,@created_at,@updated_at,@return_district)";
 
                 command.Parameters.AddWithValue("@id", Id);
@@ -2325,8 +2432,6 @@ public partial class Character : Unit, ICharacter
                 command.Parameters.AddWithValue("@recoverable_exp", RecoverableExp);
                 command.Parameters.AddWithValue("@hp", Hp);
                 command.Parameters.AddWithValue("@mp", Mp);
-                command.Parameters.AddWithValue("@labor_power", LaborPower);
-                command.Parameters.AddWithValue("@labor_power_modified", LaborPowerModified);
                 command.Parameters.AddWithValue("@consumed_lp", ConsumedLaborPower);
                 command.Parameters.AddWithValue("@ability1", (byte)Ability1);
                 command.Parameters.AddWithValue("@ability2", (byte)Ability2);
@@ -2360,7 +2465,6 @@ public partial class Character : Unit, ICharacter
                 command.Parameters.AddWithValue("@delete_request_time", DeleteRequestTime);
                 command.Parameters.AddWithValue("@transfer_request_time", TransferRequestTime);
                 command.Parameters.AddWithValue("@delete_time", DeleteTime);
-                command.Parameters.AddWithValue("@bm_point", BmPoint);
                 command.Parameters.AddWithValue("@auto_use_aapoint", AutoUseAAPoint);
                 command.Parameters.AddWithValue("@prev_point", PrevPoint);
                 command.Parameters.AddWithValue("@point", Point);
@@ -2540,8 +2644,95 @@ public partial class Character : Unit, ICharacter
         #endregion Inventory_Equip
     }
 
+    public PacketStream WriteLobby1013(PacketStream stream)
+    {
+        // Lobby character record for SC_PACKET_CHARACTER_LIST. Layout matches the
+        // per-character writer invoked from CharacterListPacket::SerializeBody; field names, order
+        // and types follow its serializer calls.
+        stream.Write((long)Id);                                          // id (i64)
+        stream.Write(Name);                                             // name (string)
+        stream.Write((byte)Race);                                       // CharRace
+        stream.Write((byte)Gender);                                     // CharGender
+        stream.Write((byte)Level);                                      // level
+        stream.Write(0L);                                              // heirExp (i64)
+        stream.Write((uint)Hp);                                        // health
+        stream.Write((uint)Mp);                                        // mana
+
+        stream.Write(Transform.ZoneId);                                   // CharacterBody.zid: send zone_key
+
+        Logger.Info(
+            "[ZONE-WIRE] char={0} serverZoneKey={1} wireZid={2}",
+            Id,
+            Transform.ZoneId,
+            Transform.ZoneId);
+
+        stream.Write((uint)(Faction?.Id ?? 0));                       // factionId (u32)
+        stream.Write(FactionName ?? "");                              // factionName (string)
+        stream.Write((uint)(Expedition?.Id ?? 0));                    // expeditionId (u32)
+        stream.Write((uint)Family);                                   // family (u32)
+        // equipment (LobbyChar_WriteEquipment) comes BEFORE abilities: validFlags(u64) + occupied
+        // items + trailing flags(u64). Same serializer as the unit-state equipment block.
+        EquipmentSerializer.Write(stream, this, BaseUnitType.Character);
+        stream.Write((byte)Ability1);                                 // ability1
+        stream.Write((byte)Ability2);                                 // ability2
+        stream.Write((byte)Ability3);                                 // ability3
+        // position record (the "pos" framing carries no extra bytes on the wire)
+        stream.Write(Helpers.ConvertLongX(Transform.Local.Position.X)); // x (i64)
+        stream.Write(Helpers.ConvertLongY(Transform.Local.Position.Y)); // y (i64)
+        stream.Write(Transform.Local.Position.Z);                     // z (float)
+        // appearance (LobbyChar_WriteAppearance): ext-gated block carrying race/gender + customization
+        ModelParams.Race = (byte)Race;
+        ModelParams.Gender = (byte)Gender;
+        ModelParams.VisualRace = (byte)Race;
+        ModelParams.VisualGender = (byte)Gender;
+        stream.Write(ModelParams);
+        stream.Write((short)0);                                       // deadCount (i16)
+        stream.Write(0L);                                            // deadTime
+        stream.Write((uint)0);                                        // rezWaitDuration
+        stream.Write((uint)0);                                        // specialRezWaitDuration
+        stream.Write(0L);                                            // rezTime
+        stream.Write((uint)0);                                        // rezPenaltyDuration
+        stream.Write(0L);                                            // lastWorldLeaveTime
+        stream.Write(0L);                                            // moneyAmount
+        stream.Write(0L);                                            // moneyAmount
+        stream.Write((short)0);                                       // crimePoint (i16)
+        stream.Write((uint)0);                                        // crimeRecord (i32)
+        stream.Write((short)0);                                       // crimeScore (i16)
+        stream.Write(0L);                                            // deleteRequestedTime
+        stream.Write(0L);                                            // transferRequestedTime
+        stream.Write(0L);                                            // createdTime
+        stream.Write(0L);                                            // deleteDelay
+        stream.Write(0L);                                            // moneyAmount
+        stream.Write(0L);                                            // moneyAmount
+        stream.Write((byte)0);                                        // autoUseAApoint (u8)
+        stream.Write((uint)0);                                        // prevPoint
+        stream.Write((uint)0);                                        // point
+        stream.Write((uint)0);                                        // gift
+        stream.Write(0L);                                            // updated
+        stream.Write((byte)0);                                        // forceNameChange
+        // guid: length-prefixed byte string, NOT raw (u16 length + 16 bytes)
+        stream.Write(new byte[16], true);                            // guid
+        // labor block — 40 bytes: lp/localLp/consumed(u32) + updated/bmPoint(u64) + rechargedLp(u32) + rechargeResetTime(u64)
+        stream.Write((uint)0);                                        // lp
+        stream.Write((uint)0);                                        // localLp
+        stream.Write((uint)0);                                        // consumed
+        stream.Write(0L);                                            // updated
+        stream.Write(0L);                                            // bmPoint
+        stream.Write((uint)0);                                        // rechargedLp
+        stream.Write(0L);                                            // rechargeResetTime
+        return stream;
+    }
+
+    public PacketStream WriteState651723(PacketStream stream)
+    {
+        // Dedicated CharacterInfo serializer for r651723 SCCharacterState (0x28B)
+        // Matches x2game.dll + 0x96B620 CharacterInfo layout (identical to WriteLobby1013)
+        return WriteLobby1013(stream);
+    }
+
     public override string DebugName()
     {
         return base.DebugName() + " (" + Id + ")";
     }
 }
+

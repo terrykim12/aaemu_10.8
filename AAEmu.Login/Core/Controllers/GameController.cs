@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -41,6 +41,9 @@ public class GameController : Singleton<GameController>
 
     private static string ResolveHostName(string host)
     {
+        if (System.Net.IPAddress.TryParse(host, out _))
+            return host;
+
         try
         {
             var parsedHost = Dns.GetHostEntry(host);

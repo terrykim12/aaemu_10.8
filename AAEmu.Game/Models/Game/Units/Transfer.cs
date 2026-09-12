@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Numerics;
 
@@ -73,7 +73,7 @@ public class Transfer : Unit
                 }
                 else
                 {
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
                 }
             }
 
@@ -96,7 +96,7 @@ public class Transfer : Unit
                 }
                 else
                 {
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
                 }
             }
 
@@ -119,7 +119,7 @@ public class Transfer : Unit
                 }
                 else
                 {
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
                 }
             }
 
@@ -142,7 +142,7 @@ public class Transfer : Unit
                 }
                 else
                 {
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
                 }
             }
 
@@ -165,7 +165,7 @@ public class Transfer : Unit
                 }
                 else
                 {
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
                 }
             }
 
@@ -188,7 +188,7 @@ public class Transfer : Unit
                 }
                 else
                 {
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
                 }
             }
 
@@ -220,7 +220,7 @@ public class Transfer : Unit
                 }
                 else
                 {
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
                 }
             }
 
@@ -253,7 +253,7 @@ public class Transfer : Unit
                 }
                 else
                 {
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
                 }
             }
 
@@ -286,7 +286,7 @@ public class Transfer : Unit
                 }
                 else
                 {
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
                 }
             }
 
@@ -318,7 +318,7 @@ public class Transfer : Unit
                 }
                 else
                 {
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
                 }
             }
 
@@ -351,7 +351,7 @@ public class Transfer : Unit
                 }
                 else
                 {
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
                 }
             }
 
@@ -384,7 +384,7 @@ public class Transfer : Unit
                 }
                 else
                 {
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
                 }
             }
 
@@ -456,9 +456,7 @@ public class Transfer : Unit
 
         transfer.MoveToPathEnabled = true;
         transfer.MoveToForward = true;
-        // попробуем взять эти значения как скорость движения транспорта
-        // let's try to take these values as vehicle speed
-        transfer.MaxVelocityForward = transfer.Template.PathSmoothing + 1.6f;
+        transfer.MaxVelocityForward = transfer.Template.Velocity;
         transfer.Speed = 0;
         if (!MoveToPathEnabled || !transfer.IsInPatrol)
         {
@@ -572,7 +570,7 @@ public class Transfer : Unit
             return;
 
         transfer.vPosition = transfer.Transform.World.ClonePosition();
-        MaxVelocityForward = vehicleModel.Velocity;
+        MaxVelocityForward = transfer.Template.Velocity;
         MaxForce = vehicleModel.AngVel;
         Mass = vehicleModel.WheeledVehicleMass;
         //var slowingRadius = transfer.Template.PathSmoothing; // расстояние с которого начинаем тормозить

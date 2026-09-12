@@ -1,4 +1,4 @@
-﻿using AAEmu.Commons.Network;
+using AAEmu.Commons.Network;
 using AAEmu.Game.Core.Network.Game;
 
 namespace AAEmu.Game.Core.Packets.G2C;
@@ -11,11 +11,11 @@ public class SCCheckRaceCongestionResponsePacket : GamePacket
 
     public override PacketStream Write(PacketStream stream)
     {
-        for (var i = 0; i < 9; i++)
+        for (var i = 0; i < 10; i++)
         {
             stream.Write((byte)0);
         }
-        // перенаселенность рас, также смотреть ACWorlList : RaceLoad[9]
+        // перенаселенность рас, также смотреть ACWorlList : RaceLoad[10]
         /*RACE_CONGESTION = {
             LOW = 0,
             MIDDLE = 1,

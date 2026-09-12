@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
@@ -27,7 +27,7 @@ public class GameDataManager : Singleton<GameDataManager>
 
         Logger.Info("Loading game data");
         CreateLoaders();
-        using (var connection2 = SQLite.CreateConnection("Data", "compact.server.table.sqlite3"))
+        using (var connection2 = SQLite.CreateConnection("Data", "game_decrypted.sqlite3"))
         using (var connection = SQLite.CreateConnection())
         {
             foreach (var loader in _loaders)

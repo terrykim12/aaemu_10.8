@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 using AAEmu.Game.Models.StaticValues;
 
@@ -31,7 +31,7 @@ public class ItemTemplate
     public int HonorPrice { get; set; }
     public int ExpAbsLifetime { get; set; }
     public int ExpOnlineLifetime { get; set; }
-    public int ExpDate { get; set; } // DateTime in 1.2, int in 3.0.3.0
+    public DateTime ExpDate { get; set; }
     public int LevelRequirement { get; set; }
     public int AuctionCategoryA { get; set; }
     public int AuctionCategoryB { get; set; }

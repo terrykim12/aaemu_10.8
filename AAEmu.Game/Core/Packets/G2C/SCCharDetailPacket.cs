@@ -1,8 +1,10 @@
-﻿using System;
+using System;
 using AAEmu.Commons.Network;
 using AAEmu.Commons.Utils;
 using AAEmu.Game.Core.Network.Game;
 using AAEmu.Game.Models.Game.Char;
+using AAEmu.Game.Models.Game.Items;
+using AAEmu.Game.Models.Game.Units;
 
 namespace AAEmu.Game.Core.Packets.G2C;
 
@@ -22,7 +24,7 @@ public class SCCharDetailPacket : GamePacket
         stream.Write(_character.Id);
         stream.Write(_character.Name);
         stream.Write((byte)_character.Race);
-        stream.Write(_character.Hp * 100); // TODO: precise health ?
+        stream.Write((uint)(_character.Hp * 100)); // precise health
         stream.Write(_character.Level);
         stream.Write((byte)_character.Ability1);
         stream.Write((byte)_character.Ability2);
@@ -31,9 +33,9 @@ public class SCCharDetailPacket : GamePacket
         stream.Write(Helpers.ConvertLongY(_character.Transform.Local.Position.Y));
         stream.Write(_character.Transform.Local.Position.Z);
         stream.Write(_character.Transform.ZoneId);
-        stream.Write(DateTime.UtcNow); // TODO: lastWorldLeaveTime
+        stream.Write(DateTime.UtcNow); // lastWorldLeaveTime
 
-        _character.Inventory.WriteInventoryEquip(stream, _character);
+        EquipmentSerializer.Write(stream, _character, BaseUnitType.Character);
 
         stream.Write(_success);
         return stream;

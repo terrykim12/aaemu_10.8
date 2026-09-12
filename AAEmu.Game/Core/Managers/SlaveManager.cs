@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -808,7 +808,6 @@ public class SlaveManager : Singleton<SlaveManager>
 
         #region SQLLite
 
-        using (var connection2 = SQLite.CreateConnection("Data", "compact.server.table.sqlite3"))
         using (var connection = SQLite.CreateConnection())
         {
             using (var command = connection.CreateCommand())
@@ -1073,22 +1072,6 @@ public class SlaveManager : Singleton<SlaveManager>
                         }
                         else
                             _slaveMountSkills.Add(template.SlaveId, [template.MountSkillId]);
-                    }
-                }
-            }
-
-            using (var command = connection2.CreateCommand())
-            {
-                command.CommandText = "SELECT * FROM repairable_slaves";
-                command.Prepare();
-
-                using (var reader = new SQLiteWrapperReader(command.ExecuteReader()))
-                {
-                    while (reader.Read())
-                    {
-                        if (!_repairableSlaves.TryAdd(reader.GetUInt32("slave_id"),
-                                reader.GetUInt32("repair_slave_effect_id")))
-                            Logger.Warn($"Duplicate entry for repairable_slaves");
                     }
                 }
             }

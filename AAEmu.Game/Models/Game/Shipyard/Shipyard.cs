@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -109,7 +109,7 @@ public sealed class Shipyard : Unit
                 }
                 else
                 {
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
                 }
             }
 
@@ -132,7 +132,7 @@ public sealed class Shipyard : Unit
                 }
                 else
                 {
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
                 }
             }
 
@@ -155,7 +155,7 @@ public sealed class Shipyard : Unit
                 }
                 else
                 {
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
                 }
             }
 
@@ -178,7 +178,7 @@ public sealed class Shipyard : Unit
                 }
                 else
                 {
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
                 }
             }
 
@@ -201,7 +201,7 @@ public sealed class Shipyard : Unit
                 }
                 else
                 {
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
                 }
             }
 
@@ -224,7 +224,7 @@ public sealed class Shipyard : Unit
                 }
                 else
                 {
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
                 }
             }
 
@@ -257,7 +257,7 @@ public sealed class Shipyard : Unit
                 }
                 else
                 {
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
                 }
             }
 
@@ -291,7 +291,7 @@ public sealed class Shipyard : Unit
                 }
                 else
                 {
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
                 }
             }
 
@@ -325,7 +325,7 @@ public sealed class Shipyard : Unit
                 }
                 else
                 {
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
                 }
             }
 
@@ -358,7 +358,7 @@ public sealed class Shipyard : Unit
                 }
                 else
                 {
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
                 }
             }
 
@@ -392,7 +392,7 @@ public sealed class Shipyard : Unit
                 }
                 else
                 {
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
                 }
             }
 
@@ -427,7 +427,7 @@ public sealed class Shipyard : Unit
                 }
                 else
                 {
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
                 }
             }
 

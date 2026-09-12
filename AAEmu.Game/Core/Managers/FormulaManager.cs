@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using AAEmu.Commons.Utils;
@@ -98,8 +98,9 @@ public class FormulaManager : Singleton<FormulaManager>
                             Kind = (UnitFormulaKind)reader.GetByte("kind_id"),
                             Owner = (FormulaOwnerType)reader.GetByte("owner_type_id")
                         };
-                        if (formula.Prepare())
-                            _unitFormulas[formula.Owner].Add(formula.Kind, formula);
+                        if (formula.Prepare() &&
+                            _unitFormulas.TryGetValue(formula.Owner, out var ownerFormulas))
+                            ownerFormulas[formula.Kind] = formula;
                     }
                 }
             }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 using AAEmu.Commons.Utils;
@@ -113,7 +113,7 @@ public class AiGameData : Singleton<AiGameData>, IGameDataLoader
                     tempListId.Add(template.Id);
                     template.CmdSetId = reader.GetUInt32("cmd_set_id");
                     template.CmdId = (AiCommandCategory)reader.GetUInt32("cmd_id");
-                    template.Param1 = reader.GetUInt32("param1");
+                    template.Param1 = reader.GetString("param1", "");
                     template.Param2 = reader.GetString("param2");
 
                     if (!_aiCommands.ContainsKey(template.CmdSetId))
@@ -137,7 +137,7 @@ public class AiGameData : Singleton<AiGameData>, IGameDataLoader
                     var template = new AiCommandSets();
                     template.Id = reader.GetUInt32("id");
                     template.Name = reader.GetString("name");
-                    template.CanInteract = reader.GetBoolean("can_interact");
+                    template.CanInteract = reader.GetBoolean("can_interact", true);
 
                     _aiCommandSets.TryAdd(template.Id, template);
                 }

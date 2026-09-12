@@ -4,20 +4,19 @@ using AAEmu.Game.Core.Packets.G2C;
 
 namespace AAEmu.Game.Core.Packets.C2G;
 
-public class CSRequestUIDataPacket : GamePacket
+public class CSRequestUIDataPacket() : GamePacket(CSOffsets.CSRequestUIDataPacket, 5)
 {
-    public CSRequestUIDataPacket() : base(CSOffsets.CSRequestUIDataPacket, 5)
-    {
-    }
-
     public override void Read(PacketStream stream)
     {
         var uiDataType = stream.ReadUInt16();
-        var id = stream.ReadUInt32();
+        var id = stream.ReadUInt64();
 
-        if (Connection.Characters.ContainsKey(id))
+        if (id > uint.MaxValue)
+            return;
+
+        if (Connection.Characters.TryGetValue((uint)id, out var value))
             Connection.SendPacket(
-                new SCResponseUIDataPacket(id, uiDataType, Connection.Characters[id].GetOption(uiDataType))
+                new SCResponseUIDataPacket((uint)id, uiDataType, value.GetOption(uiDataType))
             );
     }
 }

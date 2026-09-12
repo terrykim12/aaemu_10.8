@@ -1,13 +1,17 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using AAEmu.Game.Models.Game.World.Transform;
 
 namespace AAEmu.Game.Models.Game.Char.Templates;
 
 public class CharacterTemplate
 {
+    public uint Id { get; set; }
     public Race Race { get; set; }
     public Gender Gender { get; set; }
     public uint ModelId { get; set; }
+    public uint DefaultFaceItemId { get; set; }
+    public uint DefaultHairItemId { get; set; }
+    public uint DefaultBodyItemId { get; set; }
     public uint ZoneId { get; set; }
     public uint FactionId { get; set; }
     public uint ReturnDistrictId { get; set; }

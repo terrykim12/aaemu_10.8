@@ -1,8 +1,10 @@
-﻿using AAEmu.Commons.Network;
+﻿using System;
+using AAEmu.Commons.Network;
+using AAEmu.Game.Models.Game.Items;
 
 namespace AAEmu.Game.Models.Game.Units;
 
-public enum UnitCustomModelType
+public enum UnitCustomModelType : byte
 {
     None = 0,
     Hair = 1,
@@ -10,31 +12,18 @@ public enum UnitCustomModelType
     Face = 3
 }
 
-public class FixedDecalAsset : PacketMarshaler
+// One fixed-decal slot (asset id + blend weight). In 10.0.2.13 the ids and weights are serialized in
+// separate runs (see FaceModel), so this is a plain data holder.
+public class FixedDecalAsset(uint assetId = 0, float assetWeight = 0)
 {
-    public uint AssetId { get; set; }
-    public float AssetWeight { get; set; }
-
-    public FixedDecalAsset(uint assetId = 0, float assetWeight = 0)
-    {
-        AssetId = assetId;
-        AssetWeight = assetWeight;
-    }
-
-    public override void Read(PacketStream stream)
-    {
-        AssetId = stream.ReadUInt32();
-        AssetWeight = stream.ReadSingle();
-    }
-
-    public override PacketStream Write(PacketStream stream)
-    {
-        stream.Write(AssetId);
-        stream.Write(AssetWeight);
-        return stream;
-    }
+    public uint AssetId { get; set; } = assetId;
+    public float AssetWeight { get; set; } = assetWeight;
 }
 
+// 10.0.2.13 face customization tier (LobbyChar_WriteAppearance T3 block).
+// Wire order: movable face-decal transform, then a pish/pisc group of the 6
+// fixed-decal asset ids, then a pish/pisc group of {diffuse, normal, eyelash} map ids, then the 6 fixed-decal
+// weights, then the normal-map weight, then the 5 colors, then the 128-byte face-maker blob.
 public class FaceModel : PacketMarshaler
 {
     public uint MovableDecalAssetId { get; set; }
@@ -60,7 +49,7 @@ public class FaceModel : PacketMarshaler
 
     public FaceModel()
     {
-        FixedDecalAsset = new FixedDecalAsset[6];   // 6 - 3.0.3.0, 4 - 1.2
+        FixedDecalAsset = new FixedDecalAsset[6]; // 10.0.2.13 widened the fixed-decal count from 4 to 6
         for (var i = 0; i < FixedDecalAsset.Length; i++)
             FixedDecalAsset[i] = new FixedDecalAsset();
 
@@ -80,91 +69,119 @@ public class FaceModel : PacketMarshaler
 
     public override void Read(PacketStream stream)
     {
-        MovableDecalAssetId = stream.ReadUInt32(); // type
-        MovableDecalWeight = stream.ReadSingle();  // weight
-        MovableDecalScale = stream.ReadSingle();   // scale
-        MovableDecalRotate = stream.ReadSingle();  // rotate
-        MovableDecalMoveX = stream.ReadInt16();    // moveX
-        MovableDecalMoveY = stream.ReadInt16();    // moveY
+        MovableDecalAssetId = stream.ReadUInt32();
+        MovableDecalWeight = stream.ReadSingle();
+        MovableDecalScale = stream.ReadSingle();
+        MovableDecalRotate = stream.ReadSingle();
+        MovableDecalMoveX = stream.ReadInt16();
+        MovableDecalMoveY = stream.ReadInt16();
 
-        // --- begin pish
-        var mAssets = stream.ReadPisc(4);
-        // --- end pish
-        FixedDecalAsset[0].AssetId = (uint)mAssets[0];
-        FixedDecalAsset[1].AssetId = (uint)mAssets[1];
-        FixedDecalAsset[2].AssetId = (uint)mAssets[2];
-        FixedDecalAsset[3].AssetId = (uint)mAssets[3];
+        var decalIds1 = stream.ReadPisc(4);
+        var decalIds2 = stream.ReadPisc(2);
+        var mapIds = stream.ReadPisc(3);
+        DiffuseMapId = (uint)mapIds[0];
+        NormalMapId = (uint)mapIds[1];
+        EyelashMapId = (uint)mapIds[2];
 
-        // --- begin pish
-        mAssets = stream.ReadPisc(2);
-        // --- end pish
-        FixedDecalAsset[4].AssetId = (uint)mAssets[0];
-        FixedDecalAsset[5].AssetId = (uint)mAssets[1];
-
-        // --- begin pish
-        var mMap = stream.ReadPisc(3);
-        // --- end pish
-        DiffuseMapId = (uint)mMap[0];
-        NormalMapId = (uint)mMap[1];
-        EyelashMapId = (uint)mMap[2];
+        FixedDecalAsset[0].AssetId = (uint)decalIds1[0];
+        FixedDecalAsset[1].AssetId = (uint)decalIds1[1];
+        FixedDecalAsset[2].AssetId = (uint)decalIds1[2];
+        FixedDecalAsset[3].AssetId = (uint)decalIds1[3];
+        FixedDecalAsset[4].AssetId = (uint)decalIds2[0];
+        FixedDecalAsset[5].AssetId = (uint)decalIds2[1];
 
         for (var i = 0; i < 6; i++)
-        {
-            FixedDecalAsset[i].AssetWeight = stream.ReadSingle(); // weight
-        }
+            FixedDecalAsset[i].AssetWeight = stream.ReadSingle();
 
-        NormalMapWeight = stream.ReadSingle();    // weight
-        LipColor = stream.ReadUInt32();           // lip
-        LeftPupilColor = stream.ReadUInt32();     // leftPupil
-        RightPupilColor = stream.ReadUInt32();    // rightPupil
-        EyebrowColor = stream.ReadUInt32();       // eyebrow
-        DecoColor = stream.ReadUInt32();          // deco
+        NormalMapWeight = stream.ReadSingle();
+        LipColor = stream.ReadUInt32();
+        LeftPupilColor = stream.ReadUInt32();
+        RightPupilColor = stream.ReadUInt32();
+        EyebrowColor = stream.ReadUInt32();
+        DecoColor = stream.ReadUInt32();
 
-        Modifier = stream.ReadBytes();            // modifiers [128]
+        Modifier = stream.ReadBytes(); // 10.8 face-maker morph sliders (u16 length + 128 bytes)
     }
 
     public override PacketStream Write(PacketStream stream)
     {
+        // movable face-decal transform
         stream.Write(MovableDecalAssetId);
         stream.Write(MovableDecalWeight);
         stream.Write(MovableDecalScale);
         stream.Write(MovableDecalRotate);
         stream.Write(MovableDecalMoveX);
         stream.Write(MovableDecalMoveY);
+
         stream.WritePisc(FixedDecalAsset[0].AssetId, FixedDecalAsset[1].AssetId, FixedDecalAsset[2].AssetId, FixedDecalAsset[3].AssetId);
         stream.WritePisc(FixedDecalAsset[4].AssetId, FixedDecalAsset[5].AssetId);
         stream.WritePisc(DiffuseMapId, NormalMapId, EyelashMapId);
+
+        // 6 fixed-decal weights, then the normal-map weight
         for (var i = 0; i < 6; i++)
-        {
-            stream.Write(FixedDecalAsset[i].AssetWeight); // weight
-        }
+            stream.Write(FixedDecalAsset[i].AssetWeight);
         stream.Write(NormalMapWeight);
+
         stream.Write(LipColor);
         stream.Write(LeftPupilColor);
         stream.Write(RightPupilColor);
         stream.Write(EyebrowColor);
         stream.Write(DecoColor);
 
-        stream.Write(Modifier, true);
+        stream.Write(Modifier, true); // 10.8 face-maker morph sliders (u16 length + 128 bytes)
         return stream;
     }
 }
 
+// 10.8 appearance block (LobbyChar_WriteAppearance). A leading `ext` byte
+// (UnitCustomModelType) is a cumulative LOD gate: 0 = nothing, 1 = +hair (T1), 2 = +body (T2), >=3 = +face (T3).
+// Shared by SC_PACKET_UNIT_STATE, the character list, and the CSCreateCharacter body.
 public class UnitCustomModelParams : PacketMarshaler
 {
     private UnitCustomModelType _type;
-    public uint Id { get; private set; }
-    public uint ModelId { get; private set; }
-    public uint BodyNormalMapId { get; private set; }
-    public uint HairColorId { get; private set; }
-    public uint HornColorId { get; private set; }
-    public uint SkinColorId { get; private set; }
-    public float BodyNormalMapWeight { get; private set; }
+
+    public uint Id { get; set; }
+
+    // T1 — base appearance
+    public uint HairColorId { get; set; }        // defaultHairColor / hair style
+
+    // T2
+    public uint HairColor { get; set; }
+    public uint HornColor { get; set; }
+    public uint HornColorId { get => HornColor; set => HornColor = value; }
+
+    // T3
+    public uint DefaultHairColor { get; set; }
+    public uint TwoToneHairColor { get; set; }
+    public uint TwoToneHair { get => TwoToneHairColor; set => TwoToneHairColor = value; }
+    public float TwoToneFirstWidth { get; set; }
+    public float TwoToneSecondWidth { get; set; }
+    public uint SkinColorId { get; set; }        // wire `skinColor`
+    public uint BodyDiffuseMap { get; set; }
+    public uint BodyNormalMap { get; set; }
+    public uint BodyNormalMapId { get => BodyNormalMap; set => BodyNormalMap = value; }
+    public float BodyNormalMapWeight { get; set; }
+    public float BodyWeight { get; set; }
+
+    // Kept for callers; the unit's model id is sent separately (unit-state modelRef), not in this block.
+    public uint ModelId { get; set; }
+
+    // Face (ext >= Face)
     public FaceModel Face { get; private set; }
-    public uint DefaultHairColor { get; private set; }
-    public uint TwoToneHair { get; private set; }
-    public float TwoToneFirstWidth { get; private set; }
-    public float TwoToneSecondWidth { get; private set; }
+
+    // Base identity fields placed after Face in 10.8
+    public byte Race { get; set; }
+    public byte Gender { get; set; }
+    public long VisualRaceExpiredTime { get; set; }
+    public byte VisualRace { get; set; }
+    public byte VisualGender { get; set; }
+
+    // 10.8 Wings customization
+    public uint WingColor { get; set; }
+    public byte WingScale { get; set; } = 100;
+    public sbyte WingOffsetX { get; set; }
+    public sbyte WingOffsetY { get; set; }
+    public sbyte WingOffsetZ { get; set; }
 
     public UnitCustomModelParams(UnitCustomModelType type = UnitCustomModelType.None)
     {
@@ -180,7 +197,7 @@ public class UnitCustomModelParams : PacketMarshaler
     public UnitCustomModelParams SetType(UnitCustomModelType type)
     {
         _type = type;
-        if (_type == UnitCustomModelType.Face)
+        if (_type >= UnitCustomModelType.Face && Face == null)
             Face = new FaceModel();
         return this;
     }
@@ -255,52 +272,134 @@ public class UnitCustomModelParams : PacketMarshaler
     {
         SetType((UnitCustomModelType)stream.ReadByte()); // ext
 
-        if (_type == UnitCustomModelType.None) { return; }
+        if (_type < UnitCustomModelType.Hair)
+            return;
 
-        // Hair
-        HairColorId = stream.ReadUInt32();        // HairColorId type
-        HornColorId = stream.ReadUInt32();        // HornColorId type for 3.0.3.0
-        DefaultHairColor = stream.ReadUInt32();   // defaultHairColor for 3.0.3.0
-        TwoToneHair = stream.ReadUInt32();        // twoToneHair for 3.0.3.0
-        TwoToneFirstWidth = stream.ReadSingle();  // twoToneFirstWidth for 3.0.3.0
-        TwoToneSecondWidth = stream.ReadSingle(); // twoToneSecondWidth for 3.0.3.0
+        // T1
+        HairColorId = stream.ReadUInt32();
 
-        if (_type == UnitCustomModelType.Hair) { return; }
+        if (_type < UnitCustomModelType.Skin)
+            return;
 
-        SkinColorId = stream.ReadUInt32();          // type
-        ModelId = stream.ReadUInt32();              // type for 3.0.3.0
-        BodyNormalMapId = stream.ReadUInt32();      // type for 3.0.3.0
-        BodyNormalMapWeight = stream.ReadSingle();  // weight
+        // T2
+        HairColor = stream.ReadUInt32();
+        HornColor = stream.ReadUInt32();
 
-        if (_type == UnitCustomModelType.Skin) { return; }
+        if (_type < UnitCustomModelType.Face)
+            return;
 
-        // Face
+        // T3
+        HairColorId = stream.ReadUInt32();
+        DefaultHairColor = stream.ReadUInt32();
+        TwoToneHairColor = stream.ReadUInt32();
+        TwoToneFirstWidth = stream.ReadSingle();
+        TwoToneSecondWidth = stream.ReadSingle();
+        SkinColorId = stream.ReadUInt32();
+        BodyWeight = stream.ReadSingle();
+
+        if (Face == null)
+            Face = new FaceModel();
         Face.Read(stream);
+
+        Race = stream.ReadByte();
+        Gender = stream.ReadByte();
+        VisualRaceExpiredTime = stream.ReadInt64();
+        VisualRace = stream.ReadByte();
+        VisualGender = stream.ReadByte();
+
+        WingColor = stream.ReadUInt32();
+        WingScale = stream.ReadByte();
+        WingOffsetX = (sbyte)stream.ReadByte();
+        WingOffsetY = (sbyte)stream.ReadByte();
+        WingOffsetZ = (sbyte)stream.ReadByte();
+    }
+
+    internal static UnitCustomModelParams ReadStored(byte[] data)
+    {
+        // Packed asset IDs make the current appearance record variable-length.
+        var stream = new PacketStream(data);
+        var model = new UnitCustomModelParams();
+        model.Read(stream);
+        if (stream.LeftBytes != 0)
+            throw new FormatException($"Appearance record contains {stream.LeftBytes} unread bytes.");
+        return model;
+    }
+
+    public void ReadLegacy266(PacketStream stream)
+    {
+        SetType((UnitCustomModelType)stream.ReadByte()); // ext (1B)
+
+        // 13 uint/float fields (52B)
+        HairColorId = stream.ReadUInt32();
+        var f1 = stream.ReadUInt32();
+        var f2 = stream.ReadUInt32();
+        var f3 = stream.ReadUInt32();
+        var f4 = stream.ReadUInt32();
+        HairColor = stream.ReadUInt32();
+        TwoToneHairColor = stream.ReadUInt32();
+        TwoToneFirstWidth = stream.ReadSingle();
+        TwoToneSecondWidth = stream.ReadSingle();
+        SkinColorId = stream.ReadUInt32();
+        BodyDiffuseMap = stream.ReadUInt32();
+        BodyNormalMap = stream.ReadUInt32();
+        BodyWeight = stream.ReadSingle();
+
+        if (Face == null)
+            Face = new FaceModel();
+        Face.Read(stream); // 213B
+
+        // 10.8 Wings customization defaults
+        WingColor = 0;
+        WingScale = 100;
+        WingOffsetX = 0;
+        WingOffsetY = 0;
+        WingOffsetZ = 0;
     }
 
     public override PacketStream Write(PacketStream stream)
     {
         stream.Write((byte)_type); // ext
 
-        if (_type == UnitCustomModelType.None) { return stream; }
+        if (_type < UnitCustomModelType.Hair)
+            return stream;
 
-        stream.Write(HairColorId);        // type
-        stream.Write(HornColorId);        // type for 3.0.3.0
-        stream.Write(DefaultHairColor);   // defaultHairColor for 3.0.3.0
-        stream.Write(TwoToneHair);        // twoToneHair for 3.0.3.0
-        stream.Write(TwoToneFirstWidth);  // twoToneFirstWidth for 3.0.3.0
-        stream.Write(TwoToneSecondWidth); // twoToneSecondWidth for 3.0.3.0
+        // T1
+        stream.Write(HairColorId);
 
-        if (_type == UnitCustomModelType.Hair) { return stream; }
+        if (_type < UnitCustomModelType.Skin)
+            return stream;
 
-        stream.Write(SkinColorId);          // type
-        stream.Write(ModelId);              // type for 3.0.3.0
-        stream.Write(BodyNormalMapId);      // type for 3.0.3.0
-        stream.Write(BodyNormalMapWeight);  // weight
+        // T2
+        stream.Write(HairColor);
+        stream.Write(HornColor);
 
-        if (_type == UnitCustomModelType.Skin) { return stream; }
+        if (_type < UnitCustomModelType.Face)
+            return stream;
 
+        // T3
+        stream.Write(HairColorId);
+        stream.Write(DefaultHairColor);
+        stream.Write(TwoToneHairColor);
+        stream.Write(TwoToneFirstWidth);
+        stream.Write(TwoToneSecondWidth);
+        stream.Write(SkinColorId);
+        stream.Write(BodyWeight);
+
+        if (Face == null)
+            Face = new FaceModel();
         stream.Write(Face);
+
+        stream.Write(Race);
+        stream.Write(Gender);
+        stream.Write(VisualRaceExpiredTime);
+        stream.Write(VisualRace);
+        stream.Write(VisualGender);
+
+        stream.Write(WingColor);
+        stream.Write(WingScale == 0 ? (byte)100 : WingScale);
+        stream.Write((byte)WingOffsetX);
+        stream.Write((byte)WingOffsetY);
+        stream.Write((byte)WingOffsetZ);
 
         return stream;
     }

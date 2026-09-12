@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -282,7 +282,6 @@ public class WorldManager : Singleton<WorldManager>, IWorldManager
 
         #region LoadServerDB
 
-        using (var connection2 = SQLite.CreateConnection("Data", "compact.server.table.sqlite3"))
         using (var connection = SQLite.CreateConnection())
         {
             using (var command = connection.CreateCommand())
@@ -296,21 +295,21 @@ public class WorldManager : Singleton<WorldManager>, IWorldManager
                         var idz = new IndunZone()
                         {
                             ZoneGroupId = reader.GetUInt32("zone_group_id"),
-                            Name = reader.GetString("name"),
+                            Name = string.Empty,
                             //Comment = reader.GetString("comment"), // there is no such field in the database for version 3.0.3.0
                             LevelMin = reader.GetUInt32("level_min"),
                             LevelMax = reader.GetUInt32("level_max"),
                             MaxPlayers = reader.GetUInt32("max_players"),
                             PvP = reader.GetBoolean("pvp"),
                             HasGraveyard = reader.GetBoolean("has_graveyard"),
-                            ItemId = reader.IsDBNull("item_id") ? 0 : reader.GetUInt32("item_id"),
+                            ItemId = 0,
                             RestoreItemTime = reader.GetUInt32("restore_item_time"),
                             PartyOnly = reader.GetBoolean("party_only"),
                             ClientDriven = reader.GetBoolean("client_driven"),
                             SelectChannel = reader.GetBoolean("select_channel")
                         };
                         idz.LocalizedName =
-                            LocalizationManager.Instance.Get("indun_zones", "name", idz.ZoneGroupId, idz.Name);
+                            LocalizationManager.Instance.Get("indun_zones", "name", idz.ZoneGroupId, string.Empty);
                         if (!_indunZones.TryAdd(idz.ZoneGroupId, idz))
                             Logger.Fatal($"Unable to add zone_group_id: {idz.ZoneGroupId} from indun_zone");
                     }
@@ -327,7 +326,7 @@ public class WorldManager : Singleton<WorldManager>, IWorldManager
             }
             */
 
-            using (var command = connection2.CreateCommand())
+            using (var command = connection.CreateCommand())
             {
                 command.CommandText = "SELECT * FROM wi_group_wis";
                 command.Prepare();

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -288,6 +288,7 @@ public class TransferManager : Singleton<TransferManager>
                         template.WaitTime = reader.GetFloat("wait_time");
                         template.Cyclic = reader.GetBoolean("cyclic", true);
                         template.PathSmoothing = reader.GetFloat("path_smoothing");
+                        template.Velocity = reader.GetFloat("velocity", 0f);
 
                         _templates.Add(template.Id, template);
                     }

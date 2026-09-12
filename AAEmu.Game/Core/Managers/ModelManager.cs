@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Numerics;
 
 using AAEmu.Commons.Utils;
@@ -145,8 +145,8 @@ namespace AAEmu.Game.Core.Managers
                                     WaterDensity = reader.GetFloat("water_density", 1f),
                                     WaterResistance = reader.GetFloat("water_resistance", 1f),
                                     SteerVel = reader.GetFloat("steer_vel"),
-                                    Accel = reader.GetFloat("accel"),
-                                    ReverseAccel = reader.GetFloat("reverse_accel"),
+                                    Accel = reader.GetFloat("velocity", 1f),
+                                    ReverseAccel = reader.GetFloat("reverse_velocity", 1f),
                                     ReverseVelocity = reader.GetFloat("reverse_velocity"),
                                     TurnAccel = reader.GetFloat("turn_accel"),
                                     TubeLength = reader.GetFloat("tube_length"),
@@ -176,12 +176,10 @@ namespace AAEmu.Game.Core.Managers
                                     LinDeaccelInertia = reader.GetFloat("lin_deaccel_inertia"),
                                     RotInertia = reader.GetFloat("rot_inertia"),
                                     RotDeaccelInertia = reader.GetFloat("rot_deaccel_inertia"),
-                                    Velocity = reader.GetFloat("velocity"),
+                                    Velocity = reader.GetFloat("wheeled_vehicle_speed_limit", 0f),
                                     AngVel = reader.GetFloat("angVel"),
                                     CanFly = reader.GetFloat("can_fly"),
                                     WheeledVehicleMass = reader.GetFloat("wheeled_vehicle_mass"),
-                                    WheeledVehiclePower = reader.GetFloat("wheeled_vehicle_power"),
-                                    WheeledVehicleBrakeTorque = reader.GetFloat("wheeled_vehicle_brake_torque"),
                                     WheeledVehicleMaxGear = reader.GetUInt32("wheeled_vehicle_max_gear"),
                                     WheeledVehicleGearSpeedRatioReverse = reader.GetFloat("wheeled_vehicle_gear_speed_ratio_reverse"),
                                     WheeledVehicleGearSpeedRatio1 = reader.GetFloat("wheeled_vehicle_gear_speed_ratio_1"),

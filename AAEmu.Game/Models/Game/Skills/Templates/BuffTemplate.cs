@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -215,7 +215,7 @@ public class BuffTemplate
         {
             var bonus = new Bonus();
             bonus.Template = template;
-            bonus.Value = (int)Math.Round(template.Value + (template.LinearLevelBonus * (buff.AbLevel / 100f)));
+            bonus.Value = (long)Math.Round(template.Value + (template.LinearLevelBonus * (buff.AbLevel / 100f)));
             owner.AddBonus(buff.Index, bonus);
         }
 

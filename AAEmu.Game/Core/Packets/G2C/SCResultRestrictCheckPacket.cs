@@ -3,24 +3,15 @@ using AAEmu.Game.Core.Network.Game;
 
 namespace AAEmu.Game.Core.Packets.G2C;
 
-public class SCResultRestrictCheckPacket : GamePacket
+public class SCResultRestrictCheckPacket(long restrictType, byte code, byte result)
+    : GamePacket(SCOffsets.SCResultRestrictCheckPacket, 5)
 {
-    private readonly uint _characterId;
-    private readonly byte _code;
-    private readonly byte _result;
-
-    public SCResultRestrictCheckPacket(uint characterId, byte code, byte result) : base(SCOffsets.SCResultRestrictCheckPacket, 5)
-    {
-        _characterId = characterId;
-        _code = code;
-        _result = result;
-    }
-
+    // 10.0.2.13 SCResultRestrictCheck: restrictType i64 ("type") + code u8 + result u8.
     public override PacketStream Write(PacketStream stream)
     {
-        stream.Write(_characterId);
-        stream.Write(_code);
-        stream.Write(_result);
+        stream.Write(restrictType);
+        stream.Write(code);
+        stream.Write(result);
         return stream;
     }
 }

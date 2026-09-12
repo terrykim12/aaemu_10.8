@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
 using AAEmu.Commons.Utils;
 using AAEmu.Game.GameData.Framework;
@@ -236,7 +236,7 @@ public class IndunGameData : Singleton<IndunGameData>, IGameDataLoader
                     indunEvent.Id = reader.GetUInt32("id");
                     indunEvent.ConditionId = reader.GetUInt32("condition_id");
                     indunEvent.ZoneGroupId = reader.GetUInt16("zone_group_id");
-                    indunEvent.StartActionId = reader.GetUInt32("start_action_id");
+                    indunEvent.StartActionId = reader.GetUInt32("start_action_id", 0);
                     indunEvent.NpcId = reader.GetUInt32("npc_id");
 
                     if (!_indunEvents.ContainsKey(indunEvent.ZoneGroupId))
@@ -345,7 +345,7 @@ public class IndunGameData : Singleton<IndunGameData>, IGameDataLoader
                     indunZone.MaxPlayers = reader.GetUInt32("max_players");
                     indunZone.PlayerCombat = reader.GetBoolean("pvp", true);
                     indunZone.HasGraveyard = reader.GetBoolean("has_graveyard", true);
-                    indunZone.ItemRequired = reader.GetUInt32("item_id", 0);
+                    indunZone.ItemRequired = 0;
                     indunZone.ItemCooldown = reader.GetUInt32("restore_item_time");
                     indunZone.PartyRequired = reader.GetBoolean("party_only", true);
                     indunZone.ClientDriven = reader.GetBoolean("client_driven", true);

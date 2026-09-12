@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
@@ -702,7 +702,7 @@ public class QuestManager : Singleton<QuestManager>, IQuestManager
                     template.Id = reader.GetUInt32("id");
                     template.DoodadId = reader.GetUInt32("doodad_id");
                     template.UseAlias = reader.GetBoolean("use_alias", true);
-                    template.QuestActObjAliasId = reader.GetUInt32("quest_act_obj_alias_id");
+                    template.QuestActObjAliasId = reader.GetUInt32("quest_act_obj_alias_id", 0);
                     AddActTemplate(template);
                 }
             }
@@ -853,7 +853,7 @@ public class QuestManager : Singleton<QuestManager>, IQuestManager
                     template.CraftId = reader.GetUInt32("craft_id");
                     template.Count = reader.GetInt32("count");
                     template.UseAlias = reader.GetBoolean("use_alias", true);
-                    template.QuestActObjAliasId = reader.GetUInt32("quest_act_obj_alias_id");
+                    template.QuestActObjAliasId = reader.GetUInt32("quest_act_obj_alias_id", 0);
                     template.HighlightDoodadId = reader.GetUInt32("highlight_doodad_id", 0);
                     template.HighlightDoodadPhase = reader.GetInt32("highlight_doodad_phase", -1); // TODO phase = 0?
                     AddActTemplate(template);
@@ -932,7 +932,7 @@ public class QuestManager : Singleton<QuestManager>, IQuestManager
                     var template = new QuestActObjExpressFire();
                     template.Id = reader.GetUInt32("id");
                     template.ExpressKeyId = reader.GetUInt32("express_key_id");
-                    template.NpcGroupId = reader.GetUInt32("npc_group_id");
+                    template.NpcGroupId = reader.GetUInt32("npc_group_id", 0);
                     template.Count = reader.GetInt32("count");
                     template.UseAlias = reader.GetBoolean("use_alias", true);
                     template.QuestActObjAliasId = reader.GetUInt32("quest_act_obj_alias_id", 0);
@@ -1226,14 +1226,14 @@ public class QuestManager : Singleton<QuestManager>, IQuestManager
                 {
                     var template = new QuestActObjZoneKill();
                     template.Id = reader.GetUInt32("id");
-                    template.CountPlayerKill = reader.GetInt32("count_pk");
+                    template.CountPlayerKill = reader.GetInt32("count_pk", 0);
                     template.CountNpc = reader.GetInt32("count_npc");
                     template.ZoneId = reader.GetUInt32("zone_id", 0);
                     template.TeamShare = reader.GetBoolean("team_share", true);
                     template.UseAlias = reader.GetBoolean("use_alias", true);
                     template.QuestActObjAliasId = reader.GetUInt32("quest_act_obj_alias_id", 0);
-                    template.LvlMin = reader.GetInt32("lv_min");
-                    template.LvlMax = reader.GetInt32("lv_max");
+                    template.LvlMin = reader.GetInt32("lv_min", 0);
+                    template.LvlMax = reader.GetInt32("lv_max", 0);
                     template.IsParty = reader.GetBoolean("is_party", true);
                     template.LvlMinNpc = reader.GetInt32("lv_min_npc");
                     template.LvlMaxNpc = reader.GetInt32("lv_max_npc");

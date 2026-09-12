@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -390,7 +390,6 @@ public class NpcManager : Singleton<NpcManager>
                         var custom = new TotalCharacterCustom();
                         custom.Id = reader.GetUInt32("id");
                         custom.ModelId = reader.GetUInt32("model_id");
-                        custom.Name = reader.GetString("name");
                         custom.NpcOnly = reader.GetBoolean("npcOnly", true);
                         custom.HairId = reader.GetUInt32("hair_id");
                         custom.HornId = reader.GetUInt32("horn_id");
@@ -435,9 +434,6 @@ public class NpcManager : Singleton<NpcManager>
                         custom.FaceNormalMapWeight = reader.GetFloat("face_normal_map_weight");
                         custom.DecoColor = reader.GetUInt32("deco_color");
 
-                        custom.Name = reader.GetString("name");
-                        custom.NpcOnly = reader.GetBoolean("npcOnly", true);
-                        custom.OwnerTypeId = reader.GetUInt32("owner_type_id");
 
                         // 3030 old
                         //reader.GetBytes("modifier", 0, custom.Modifier, 0, 128);
@@ -521,7 +517,7 @@ public class NpcManager : Singleton<NpcManager>
                         template.CharRaceId = reader.GetInt32("char_race_id");
                         template.NpcGradeId = (NpcGradeType)reader.GetByte("npc_grade_id");
                         template.NpcKindId = (NpcKindType)reader.GetByte("npc_kind_id");
-                        template.Level = reader.GetByte("level");
+                        template.Level = (byte)Math.Clamp(reader.GetInt32("level"), 0, 255);
                         template.NpcTemplateId = (NpcTemplateType)reader.GetByte("npc_template_id");
                         template.ModelId = reader.GetUInt32("model_id");
                         template.FactionId = reader.GetUInt32("faction_id");
@@ -720,7 +716,6 @@ public class NpcManager : Singleton<NpcManager>
                             template.ModelParams.Face.Modifier = tc.Modifier;
                             // reader2.GetBytes("modifier", 0, template.ModelParams.Face.Modifier, 0, 128);
 
-                            template.Name = tc.Name;
                             template.NpcOnly = tc.NpcOnly;
                             template.OwnerTypeId = tc.OwnerTypeId;
                         }
@@ -843,6 +838,7 @@ public class NpcManager : Singleton<NpcManager>
 
             Logger.Info("Loading merchant packs...");
 
+            var packMap = new Dictionary<uint, uint>();
             using (var command = connection.CreateCommand())
             {
                 command.CommandText = "SELECT * FROM merchants";
@@ -851,39 +847,55 @@ public class NpcManager : Singleton<NpcManager>
                 {
                     while (reader.Read())
                     {
-                        var template = new Merchants();
-                        template.NpcId = reader.GetUInt32("npc_id");
-                        template.ItemId = reader.GetUInt32("item_id");
-                        template.GradeId = reader.GetByte("grade_id");
-                        template.KindId = reader.GetByte("kind_id");
+                        var npcId = reader.GetUInt32("npc_id");
+                        var packId = reader.GetUInt32("merchant_pack_id");
 
-                        if (_merchantGoods.ContainsKey(template.NpcId))
-                            _merchantGoods[template.NpcId].Add(template);
-                        else
-                            _merchantGoods.TryAdd(template.NpcId, [template]);
+                        if (_templates.TryGetValue(npcId, out var template))
+                            template.MerchantPackId = packId;
+
+                        packMap[npcId] = packId;
                     }
                 }
             }
 
             using (var command = connection.CreateCommand())
             {
-                command.CommandText = "SELECT * FROM merchant_packs";
+                command.CommandText = "SELECT * FROM merchant_goods";
                 command.Prepare();
                 using (var reader = new SQLiteWrapperReader(command.ExecuteReader()))
                 {
                     while (reader.Read())
                     {
-                        var id = reader.GetUInt32("pack_id");
-                        var template = new MerchantPacks(id);
-                        template.ItemId = reader.GetUInt32("item_id");
-                        template.GradeId = reader.GetByte("grade_id");
-                        template.KindId = reader.GetByte("kind_id");
+                        var packId = reader.GetUInt32("merchant_pack_id");
+                        var itemId = reader.GetUInt32("item_id");
+                        var gradeId = reader.GetByte("grade_id");
 
-                        if (_merchantPackGoods.ContainsKey(id))
-                            _merchantPackGoods[id].Add(template);
-                        else
-                            _merchantPackGoods.TryAdd(id, [template]);
+                        var packItem = new MerchantPacks(packId)
+                        {
+                            ItemId = itemId,
+                            GradeId = gradeId
+                        };
+
+                        if (!_merchantPackGoods.TryGetValue(packId, out var pList))
+                        {
+                            pList = new List<MerchantPacks>();
+                            _merchantPackGoods[packId] = pList;
+                        }
+                        pList.Add(packItem);
                     }
+                }
+            }
+
+            foreach (var (npcId, packId) in packMap)
+            {
+                if (_merchantPackGoods.TryGetValue(packId, out var items))
+                {
+                    _merchantGoods[npcId] = items.Select(i => new Merchants
+                    {
+                        NpcId = npcId,
+                        ItemId = i.ItemId,
+                        GradeId = i.GradeId
+                    }).ToList();
                 }
             }
 

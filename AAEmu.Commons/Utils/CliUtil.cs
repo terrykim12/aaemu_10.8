@@ -1,4 +1,4 @@
-﻿// Copyright (c) Aura development team - Licensed under GNU GPL
+// Copyright (c) Aura development team - Licensed under GNU GPL
 // For more information, see licence.txt in the main folder
 
 using System;
@@ -41,7 +41,11 @@ namespace AAEmu.Commons.Utils
         /// <param name="color">Color of the logo.</param>
         public static void WriteHeader(string consoleTitle, ConsoleColor color)
         {
-            Console.Title = TitlePrefix + consoleTitle;
+            try
+            {
+                Console.Title = TitlePrefix + consoleTitle;
+            }
+            catch { }
 
             WriteSeperator();
 
@@ -58,12 +62,24 @@ namespace AAEmu.Commons.Utils
             WriteSeperator();
         }
 
+        private static int GetWindowWidth()
+        {
+            try
+            {
+                return Console.WindowWidth > 0 ? Console.WindowWidth : 80;
+            }
+            catch
+            {
+                return 80;
+            }
+        }
+
         /// <summary>
         /// Writes seperator in form of 80 underscores to Console.
         /// </summary>
         public static void WriteSeperator()
         {
-            Console.WriteLine("".PadLeft(Console.WindowWidth, '_'));
+            Console.WriteLine("".PadLeft(GetWindowWidth(), '_'));
         }
 
         /// <summary>
@@ -92,20 +108,28 @@ namespace AAEmu.Commons.Utils
                 referenceLength = line.Length;
             }
 
-            Console.WriteLine(line.PadLeft(line.Length + Console.WindowWidth / 2 - referenceLength / 2));
+            Console.WriteLine(line.PadLeft(line.Length + GetWindowWidth() / 2 - referenceLength / 2));
         }
 
         public static void LoadingTitle()
         {
-            if (!Console.Title.StartsWith("* "))
+            try
             {
-                Console.Title = "* " + Console.Title;
+                if (!Console.Title.StartsWith("* "))
+                {
+                    Console.Title = "* " + Console.Title;
+                }
             }
+            catch { }
         }
 
         public static void RunningTitle()
         {
-            Console.Title = Console.Title.TrimStart('*', ' ');
+            try
+            {
+                Console.Title = Console.Title.TrimStart('*', ' ');
+            }
+            catch { }
         }
 
         /// <summary>

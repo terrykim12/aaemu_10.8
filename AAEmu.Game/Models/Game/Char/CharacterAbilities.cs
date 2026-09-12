@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using AAEmu.Game.Core.Managers;
 using AAEmu.Game.Core.Packets.G2C;
@@ -16,9 +16,10 @@ public class CharacterAbilities
     {
         Owner = owner;
         Abilities = new Dictionary<AbilityType, Ability>();
-        for (var i = 1; i < 13; i++) //1.2 = 10 ability, 3.0.3.0 = 12 ability
+        foreach (var id in Enum.GetValues<AbilityType>())
         {
-            var id = (AbilityType)i;
+            if (id == AbilityType.General || id == AbilityType.None)
+                continue;
             Abilities[id] = new Ability(id);
         }
     }
@@ -33,12 +34,15 @@ public class CharacterAbilities
     public List<AbilityType> GetActiveAbilities()
     {
         var list = new List<AbilityType>();
-        if (Owner.Ability1 != AbilityType.None)
-            list.Add(Owner.Ability1);
-        if (Owner.Ability2 != AbilityType.None)
-            list.Add(Owner.Ability2);
-        if (Owner.Ability3 != AbilityType.None)
-            list.Add(Owner.Ability3);
+        foreach (var id in new[] { Owner.Ability1, Owner.Ability2, Owner.Ability3 })
+        {
+            // r651723 indexes a 30-entry client array directly with this value.
+            // Unselected slots received as 30 must never enter the active list:
+            // index 30 aliases NetUnit.modelRef and overwrites its low byte.
+            if ((byte)id > 0 && (byte)id < 30 && id != AbilityType.None &&
+                Abilities.ContainsKey(id) && !list.Contains(id))
+                list.Add(id);
+        }
         return list;
     }
 
@@ -52,12 +56,8 @@ public class CharacterAbilities
     public void AddActiveExp(int exp)
     {
         // TODO SCExpChangedPacket
-        if (Owner.Ability1 != AbilityType.None)
-            Abilities[Owner.Ability1].Exp = Math.Min(Abilities[Owner.Ability1].Exp + exp, ExperienceManager.Instance.GetExpForLevel(55));
-        if (Owner.Ability2 != AbilityType.None)
-            Abilities[Owner.Ability2].Exp = Math.Min(Abilities[Owner.Ability2].Exp + exp, ExperienceManager.Instance.GetExpForLevel(55));
-        if (Owner.Ability3 != AbilityType.None)
-            Abilities[Owner.Ability3].Exp = Math.Min(Abilities[Owner.Ability3].Exp + exp, ExperienceManager.Instance.GetExpForLevel(55));
+        foreach (var id in GetActiveAbilities())
+            Abilities[id].Exp = Math.Min(Abilities[id].Exp + exp, ExperienceManager.Instance.GetExpForLevel(55));
     }
 
     public void Swap(AbilityType oldAbilityId, AbilityType abilityId)

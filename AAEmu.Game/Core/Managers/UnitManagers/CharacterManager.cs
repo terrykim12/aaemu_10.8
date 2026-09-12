@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 
@@ -56,7 +56,10 @@ public class CharacterManager : Singleton<CharacterManager>
 
     public CharacterTemplate GetTemplate(byte race, byte gender)
     {
-        return _templates[(byte)(16 * gender + race)];
+        var key = (byte)(16 * gender + race);
+        if (_templates != null && _templates.TryGetValue(key, out var template))
+            return template;
+        return null;
     }
 
     public AppellationTemplate GetAppellationsTemplate(uint id)
@@ -96,7 +99,6 @@ public class CharacterManager : Singleton<CharacterManager>
 
         using (var connection = SQLite.CreateConnection())
         {
-            var temp = new Dictionary<uint, byte>();
             using (var command = connection.CreateCommand())
             {
                 command.CommandText = "SELECT * FROM characters";
@@ -107,9 +109,12 @@ public class CharacterManager : Singleton<CharacterManager>
                     {
                         var template = new CharacterTemplate();
                         var id = reader.GetUInt32("id");
+                        template.Id = id;
                         template.Race = (Race)reader.GetByte("char_race_id");
                         template.Gender = (Gender)reader.GetByte("char_gender_id");
                         template.ModelId = reader.GetUInt32("model_id");
+                        template.DefaultFaceItemId = reader.GetUInt32("face_item_id");
+                        var defaultBodies = new HashSet<uint>();
                         template.FactionId = reader.GetUInt32("faction_id");
                         template.ZoneId = reader.GetUInt32("starting_zone_id");
                         template.ReturnDistrictId = reader.GetUInt32("default_return_district_id");
@@ -126,29 +131,40 @@ public class CharacterManager : Singleton<CharacterManager>
                                     var itemId = reader2.GetUInt32("item_id", 0);
                                     var slot = reader2.GetInt32("slot_type_id") - 23;
                                     template.Items[slot] = itemId;
+                                    if (slot == 5 && itemId != 0 && !reader2.GetBoolean("npc_only", true))
+                                        defaultBodies.Add(itemId);
                                 }
                             }
                         }
 
+                        // Follow the explicit default preset, validating its model and hair-slot relation.
+                        using (var hairCommand = connection.CreateCommand())
+                        {
+                            hairCommand.CommandText = @"SELECT DISTINCT c.hair_id FROM total_character_customs c
+                                JOIN item_body_parts b ON b.item_id=c.hair_id AND b.model_id=c.model_id
+                                WHERE c.id=@custom AND c.model_id=@model AND c.npcOnly='f'
+                                  AND b.slot_type_id=24 AND b.npc_only='f'";
+                            hairCommand.Parameters.AddWithValue("@custom", reader.GetUInt32("default_custom_id"));
+                            hairCommand.Parameters.AddWithValue("@model", template.ModelId);
+                            using var hairReader = hairCommand.ExecuteReader();
+                            if (hairReader.Read())
+                            {
+                                var hairId = (uint)hairReader.GetInt64(0);
+                                if (!hairReader.Read())
+                                    template.DefaultHairItemId = hairId;
+                            }
+                        }
+                        // Only a unique player body is an unambiguous fallback. Never choose an arbitrary variant.
+                        if (defaultBodies.Count == 1)
+                            foreach (var bodyId in defaultBodies)
+                                template.DefaultBodyItemId = bodyId;
+
+                        // Do not let the last scanned appearance variant become the creation default.
+                        template.Items[0] = template.DefaultFaceItemId;
+                        template.Items[1] = template.DefaultHairItemId;
+                        template.Items[5] = template.DefaultBodyItemId;
                         var templateId = (byte)(16 * (byte)template.Gender + (byte)template.Race);
                         _templates.Add(templateId, template);
-                        temp.Add(id, templateId);
-                    }
-                }
-            }
-
-            using (var command = connection.CreateCommand())
-            {
-                command.CommandText = "SELECT * FROM character_buffs";
-                command.Prepare();
-                using (var reader = new SQLiteWrapperReader(command.ExecuteReader()))
-                {
-                    while (reader.Read())
-                    {
-                        var characterId = reader.GetUInt32("character_id");
-                        var buffId = reader.GetUInt32("buff_id");
-                        var template = _templates[temp[characterId]];
-                        template.Buffs.Add(buffId);
                     }
                 }
             }
@@ -184,7 +200,7 @@ public class CharacterManager : Singleton<CharacterManager>
                 {
                     while (reader.Read())
                     {
-                        var ability = reader.GetByte("ability_id");
+                        var ability = reader.GetByte("id");
                         var template = new AbilityItems { Ability = ability, Items = new EquipItemsTemplate() };
                         var clothPack = reader.GetUInt32("newbie_cloth_pack_id", 0);
                         var weaponPack = reader.GetUInt32("newbie_weapon_pack_id", 0);
@@ -446,24 +462,32 @@ public class CharacterManager : Singleton<CharacterManager>
             for (var i = 0; i < character.Slots.Length; i++)
                 character.Slots[i] = new ActionSlot();
 
-            var items = _abilityItems[ability1];
-            SetEquipItemTemplate(character.Inventory, items.Items.Headgear, EquipmentItemSlot.Head, items.Items.HeadgearGrade);
-            SetEquipItemTemplate(character.Inventory, items.Items.Necklace, EquipmentItemSlot.Neck, items.Items.NecklaceGrade);
-            SetEquipItemTemplate(character.Inventory, items.Items.Shirt, EquipmentItemSlot.Chest, items.Items.ShirtGrade);
-            SetEquipItemTemplate(character.Inventory, items.Items.Belt, EquipmentItemSlot.Waist, items.Items.BeltGrade);
-            SetEquipItemTemplate(character.Inventory, items.Items.Pants, EquipmentItemSlot.Legs, items.Items.PantsGrade);
-            SetEquipItemTemplate(character.Inventory, items.Items.Gloves, EquipmentItemSlot.Hands, items.Items.GlovesGrade);
-            SetEquipItemTemplate(character.Inventory, items.Items.Shoes, EquipmentItemSlot.Feet, items.Items.ShoesGrade);
-            SetEquipItemTemplate(character.Inventory, items.Items.Bracelet, EquipmentItemSlot.Arms, items.Items.BraceletGrade);
-            SetEquipItemTemplate(character.Inventory, items.Items.Back, EquipmentItemSlot.Back, items.Items.BackGrade);
-            SetEquipItemTemplate(character.Inventory, items.Items.Undershirts, EquipmentItemSlot.Undershirt, items.Items.UndershirtsGrade);
-            SetEquipItemTemplate(character.Inventory, items.Items.Underpants, EquipmentItemSlot.Underpants, items.Items.UnderpantsGrade);
-            SetEquipItemTemplate(character.Inventory, items.Items.Mainhand, EquipmentItemSlot.Mainhand, items.Items.MainhandGrade);
-            SetEquipItemTemplate(character.Inventory, items.Items.Offhand, EquipmentItemSlot.Offhand, items.Items.OffhandGrade);
-            SetEquipItemTemplate(character.Inventory, items.Items.Ranged, EquipmentItemSlot.Ranged, items.Items.RangedGrade);
-            SetEquipItemTemplate(character.Inventory, items.Items.Musical, EquipmentItemSlot.Musical, items.Items.MusicalGrade);
-            SetEquipItemTemplate(character.Inventory, items.Items.Cosplay, EquipmentItemSlot.Cosplay, items.Items.CosplayGrade);
-            SetEquipItemTemplate(character.Inventory, items.Items.Stabilizer, EquipmentItemSlot.Stabilizer, items.Items.StabilizerGrade);
+            _abilityItems.TryGetValue((byte)ability1, out var items);
+            if (items?.Items != null)
+            {
+                SetEquipItemTemplate(character.Inventory, items.Items.Headgear, EquipmentItemSlot.Head, items.Items.HeadgearGrade);
+                SetEquipItemTemplate(character.Inventory, items.Items.Necklace, EquipmentItemSlot.Neck, items.Items.NecklaceGrade);
+                SetEquipItemTemplate(character.Inventory, items.Items.Shirt, EquipmentItemSlot.Chest, items.Items.ShirtGrade);
+                SetEquipItemTemplate(character.Inventory, items.Items.Belt, EquipmentItemSlot.Waist, items.Items.BeltGrade);
+                SetEquipItemTemplate(character.Inventory, items.Items.Pants, EquipmentItemSlot.Legs, items.Items.PantsGrade);
+                SetEquipItemTemplate(character.Inventory, items.Items.Gloves, EquipmentItemSlot.Hands, items.Items.GlovesGrade);
+                SetEquipItemTemplate(character.Inventory, items.Items.Shoes, EquipmentItemSlot.Feet, items.Items.ShoesGrade);
+                SetEquipItemTemplate(character.Inventory, items.Items.Bracelet, EquipmentItemSlot.Arms, items.Items.BraceletGrade);
+                SetEquipItemTemplate(character.Inventory, items.Items.Back, EquipmentItemSlot.Back, items.Items.BackGrade);
+                SetEquipItemTemplate(character.Inventory, items.Items.Undershirts, EquipmentItemSlot.Undershirt, items.Items.UndershirtsGrade);
+                SetEquipItemTemplate(character.Inventory, items.Items.Underpants, EquipmentItemSlot.Underpants, items.Items.UnderpantsGrade);
+                SetEquipItemTemplate(character.Inventory, items.Items.Mainhand, EquipmentItemSlot.Mainhand, items.Items.MainhandGrade);
+                SetEquipItemTemplate(character.Inventory, items.Items.Offhand, EquipmentItemSlot.Offhand, items.Items.OffhandGrade);
+                SetEquipItemTemplate(character.Inventory, items.Items.Ranged, EquipmentItemSlot.Ranged, items.Items.RangedGrade);
+                SetEquipItemTemplate(character.Inventory, items.Items.Musical, EquipmentItemSlot.Musical, items.Items.MusicalGrade);
+                SetEquipItemTemplate(character.Inventory, items.Items.Cosplay, EquipmentItemSlot.Cosplay, items.Items.CosplayGrade);
+                SetEquipItemTemplate(character.Inventory, items.Items.Stabilizer, EquipmentItemSlot.Stabilizer, items.Items.StabilizerGrade);
+            }
+            else
+            {
+                Logger.Warn("Starting ability {0} has no starter equip pack mapping; skipping starter equipment.", ability1);
+            }
+
             for (var i = 0; i < 7; i++)
             {
                 if (body[i] == 0 && template.Items[i] > 0)
@@ -472,27 +496,25 @@ public class CharacterManager : Singleton<CharacterManager>
             }
 
             byte slot = 10;
-            foreach (var item in items.Supplies)
+            if (items?.Supplies != null)
             {
-                character.Inventory.Bag.AcquireDefaultItem(ItemTaskType.Invalid, item.Id, item.Amount, item.Grade);
-                //var createdItem = ItemManager.Instance.Create(item.Id, item.Amount, item.Grade);
-                //character.Inventory.AddItem(Models.Game.Items.Actions.ItemTaskType.Invalid, createdItem);
-
-                character.SetAction(slot, ActionSlotType.ItemType, item.Id);
-                slot++;
-            }
-
-            items = _abilityItems[0];
-            if (items != null)
                 foreach (var item in items.Supplies)
                 {
                     character.Inventory.Bag.AcquireDefaultItem(ItemTaskType.Invalid, item.Id, item.Amount, item.Grade);
-                    //var createdItem = ItemManager.Instance.Create(item.Id, item.Amount, item.Grade);
-                    //character.Inventory.AddItem(ItemTaskType.Invalid, createdItem);
-
                     character.SetAction(slot, ActionSlotType.ItemType, item.Id);
                     slot++;
                 }
+            }
+
+            if (_abilityItems.TryGetValue(0, out var defaultItems) && defaultItems?.Supplies != null)
+            {
+                foreach (var item in defaultItems.Supplies)
+                {
+                    character.Inventory.Bag.AcquireDefaultItem(ItemTaskType.Invalid, item.Id, item.Amount, item.Grade);
+                    character.SetAction(slot, ActionSlotType.ItemType, item.Id);
+                    slot++;
+                }
+            }
 
             character.Abilities = new CharacterAbilities(character);
             character.Abilities.SetAbility(character.Ability1, 0);

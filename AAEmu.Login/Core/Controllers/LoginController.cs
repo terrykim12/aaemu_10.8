@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using AAEmu.Commons.Utils;
@@ -54,8 +54,8 @@ public class LoginController : Singleton<LoginController>
                     connection.LastIp = connection.Ip;
 
                     Logger.Info("{0} connected...", connection.AccountName);
-                    connection.SendPacket(new ACJoinResponsePacket(1, 0x02020402, 0));
-                    connection.SendPacket(new ACAuthResponsePacket(connection.AccountId, 0));
+                    connection.SendPacket(new ACJoinResponsePacket(1, 0x00060606, 6));
+                    connection.SendPacket(new ACAuthResponsePacket(connection.AccountId, 6));
                 }
             }
         }
@@ -106,8 +106,8 @@ public class LoginController : Singleton<LoginController>
                     connection.LastIp = connection.Ip;
 
                     Logger.Info("{0} connected...", connection.AccountName);
-                    connection.SendPacket(new ACJoinResponsePacket(1, 0x02020402, 0));
-                    connection.SendPacket(new ACAuthResponsePacket(connection.AccountId, 0));
+                    connection.SendPacket(new ACJoinResponsePacket(1, 0x00060606, 6));
+                    connection.SendPacket(new ACAuthResponsePacket(connection.AccountId, 6));
                 }
             }
         }

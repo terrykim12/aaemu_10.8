@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 using AAEmu.Commons.Network;
 using AAEmu.Game.Models.Game.Items.Containers;
@@ -107,6 +107,10 @@ public class Item : PacketMarshaler, IComparable<Item>
     public DateTime ChargeTime { get => _chargeTime; set { _chargeTime = value; _isDirty = true; } }
     public ushort TemperPhysical { get => _TemperPhysical; set { _TemperPhysical = value; _isDirty = true; } }
     public ushort TemperMagical { get => _TemperMagical; set { _TemperMagical = value; _isDirty = true; } }
+    public ushort EvolveChance { get; set; }
+    public DateTime ChargeProcTime { get; set; }
+    public byte MappingFailBonus { get; set; }
+    public byte ElementLevel { get; set; }
     public uint RuneId { get => _runeId; set { _runeId = value; _isDirty = true; } }
 
     public uint[] GemIds { get; set; }
@@ -180,7 +184,7 @@ public class Item : PacketMarshaler, IComparable<Item>
         Slot = -1;
         _holdingContainer = null;
         _isDirty = true;
-        GemIds = new uint[16];
+        GemIds = new uint[18];
     }
 
     public override void Read(PacketStream stream)
@@ -199,167 +203,172 @@ public class Item : PacketMarshaler, IComparable<Item>
 
         CreateTime = stream.ReadDateTime();
         LifespanMins = stream.ReadInt32();
-        MadeUnitId = stream.ReadUInt32();
+        MadeUnitId = (uint)stream.ReadUInt64(); // 10.8 reads u64
         WorldId = stream.ReadByte();
         UnsecureTime = stream.ReadDateTime();
         UnpackTime = stream.ReadDateTime();
-        ChargeUseSkillTime = stream.ReadDateTime(); // added in 1.7
+        ChargeUseSkillTime = stream.ReadDateTime();
     }
 
     public override PacketStream Write(PacketStream stream)
     {
-        stream.Write(TemplateId); // type
+        stream.Write((uint)TemplateId); // type
         if (TemplateId == 0)
             return stream;
 
-        stream.Write(Id);    // id
-        stream.Write(Grade); // grade
+        stream.Write((ulong)Id);    // id
+        stream.Write((byte)Grade); // grade
         stream.Write((byte)ItemFlags); // flags | bounded
-        stream.Write(Count); // stackSize
+        stream.Write((int)(Count > 0 ? Count : 1)); // stackSize
 
         stream.Write((byte)DetailType); // detailType
         WriteDetails(stream);
 
         stream.Write(CreateTime);
-        stream.Write(LifespanMins);
-        stream.Write(MadeUnitId);
-        stream.Write(WorldId);
+        stream.Write((int)LifespanMins);
+        stream.Write((ulong)MadeUnitId); // 10.8 writes u64
+        stream.Write((byte)WorldId);
         stream.Write(UnsecureTime);
         stream.Write(UnpackTime);
-        stream.Write(ChargeUseSkillTime); // added in 1.7
+        stream.Write(ChargeUseSkillTime);
 
         return stream;
     }
 
     public virtual void ReadDetails(PacketStream stream)
     {
-        var mDetailLength = 0;
-        switch (DetailType)
+        var detailType = (byte)DetailType;
+        if (detailType == 1) // ItemDetailType.Equipment
         {
-            case ItemDetailType.Equipment: // 1
-                //mDetailLength = 36; // есть расшифровка в items/EquipItem, в 3+ длина данных 36 (когда нет информации), в 1.2 было 56
+            if (stream.Count <= 35) // legacy 35-byte DB record
+            {
+                if (stream.LeftBytes < 15)
+                    return;
                 Durability = stream.ReadByte();       // durability
                 ChargeCount = stream.ReadInt16();     // chargeCount
                 ChargeTime = stream.ReadDateTime();   // chargeTime
                 TemperPhysical = stream.ReadUInt16(); // scaledA
                 TemperMagical = stream.ReadUInt16();  // scaledB
+                if (GemIds == null || GemIds.Length < 18)
+                    GemIds = new uint[18];
+                for (int i = 0; i < 4; i++)
+                {
+                    var g = stream.ReadPisc(4);
+                    for (int j = 0; j < 4; j++)
+                        GemIds[i * 4 + j] = (uint)g[j];
+                }
+                return;
+            }
 
-                var mGems = stream.ReadPisc(4);
-                GemIds[0] = (uint)mGems[0];
-                GemIds[1] = (uint)mGems[1];
-                GemIds[2] = (uint)mGems[2];
-                GemIds[3] = (uint)mGems[3];
+            if (stream.LeftBytes < 25)
+                return;
+            Durability = stream.ReadByte();       // durability
+            ChargeCount = stream.ReadInt16();     // chargeCount
+            ChargeTime = stream.ReadDateTime();   // chargeTime
+            TemperPhysical = stream.ReadUInt16(); // scaledA
+            EvolveChance = stream.ReadUInt16();
+            ChargeProcTime = stream.ReadDateTime();
+            MappingFailBonus = stream.ReadByte();
+            ElementLevel = stream.ReadByte();
 
-                mGems = stream.ReadPisc(4);
-                GemIds[4] = (uint)mGems[0];
-                GemIds[5] = (uint)mGems[1];
-                GemIds[6] = (uint)mGems[2];
-                GemIds[7] = (uint)mGems[3];
+            if (GemIds == null || GemIds.Length < 18)
+                GemIds = new uint[18];
 
-                mGems = stream.ReadPisc(4);
-                GemIds[8] = (uint)mGems[0];
-                GemIds[9] = (uint)mGems[1];
-                GemIds[10] = (uint)mGems[2];
-                GemIds[11] = (uint)mGems[3];
+            var mGems = stream.ReadPisc(4);
+            GemIds[0] = (uint)mGems[0];
+            GemIds[1] = (uint)mGems[1];
+            GemIds[2] = (uint)mGems[2];
+            GemIds[3] = (uint)mGems[3];
 
-                mGems = stream.ReadPisc(4);
-                GemIds[12] = (uint)mGems[0];
-                GemIds[13] = (uint)mGems[1];
-                GemIds[14] = (uint)mGems[2];
-                GemIds[15] = (uint)mGems[3];
-                break;
-            case ItemDetailType.Slave: // 2
-                mDetailLength = 30; // есть расшифровка в items/SummonSlave
-                break;
-            case ItemDetailType.Mate: // 3
-                mDetailLength = 21; // in 1.2 - 7, in 3+ - 21 - есть расшифровка в items/SummonMate
-                break;
-            case ItemDetailType.Ucc: // 4
-                mDetailLength = 10; // есть расшифровка в items/UccItem
-                break;
-            case ItemDetailType.Treasure: // 5
-            case ItemDetailType.Location: // 11
-                mDetailLength = 25;
-                break;
-            case ItemDetailType.BigFish: // 6
-            case ItemDetailType.Decoration: // 7
-                mDetailLength = 17; // есть расшифровка в items/BigFish
-                break;
-            case ItemDetailType.MusicSheet: // 8
-                mDetailLength = 9; // есть расшифровка в items/MusicSheetItem
-                break;
-            case ItemDetailType.Glider: // 9
-                mDetailLength = 5;
-                break;
-            case ItemDetailType.SlaveEquipment: // 10
-                mDetailLength = 13;
-                break;
-            case ItemDetailType.TypeMax:
-            case ItemDetailType.Invalid:
-            default:
-                break;
+            mGems = stream.ReadPisc(4);
+            GemIds[4] = (uint)mGems[0];
+            GemIds[5] = (uint)mGems[1];
+            GemIds[6] = (uint)mGems[2];
+            GemIds[7] = (uint)mGems[3];
+
+            mGems = stream.ReadPisc(4);
+            GemIds[8] = (uint)mGems[0];
+            GemIds[9] = (uint)mGems[1];
+            GemIds[10] = (uint)mGems[2];
+            GemIds[11] = (uint)mGems[3];
+
+            mGems = stream.ReadPisc(4);
+            GemIds[12] = (uint)mGems[0];
+            GemIds[13] = (uint)mGems[1];
+            GemIds[14] = (uint)mGems[2];
+            GemIds[15] = (uint)mGems[3];
+
+            mGems = stream.ReadPisc(2);
+            GemIds[16] = (uint)mGems[0];
+            GemIds[17] = (uint)mGems[1];
         }
-
-        mDetailLength -= 1;
-        if (mDetailLength > 0)
+        else if (detailType is >= 2 and <= 14)
         {
-            Detail = stream.ReadBytes(mDetailLength);
+            var len = GetDetailPayloadLength(detailType);
+            if (len > 0 && stream.LeftBytes >= len)
+                Detail = stream.ReadBytes(len);
         }
     }
 
     public virtual void WriteDetails(PacketStream stream)
     {
-        var mDetailLength = 0;
-        switch (DetailType)
+        var detailType = (byte)DetailType;
+        if (detailType == 1) // ItemDetailType.Equipment
         {
-            case ItemDetailType.Equipment:
-                //mDetailLength = 36; // есть расшифровка в items/EquipItem, в 3+ длина данных 36 (когда нет информации), в 1.2 было 56
-                stream.Write(Durability);     // durability
-                stream.Write(ChargeCount);    // chargeCount
-                stream.Write(ChargeTime);     // chargeTime
-                stream.Write(TemperPhysical); // scaledA
-                stream.Write(TemperMagical);  // scaledB
+            stream.Write((byte)Durability);         // durability
+            stream.Write((short)ChargeCount);       // chargeCount
+            stream.Write(ChargeTime);               // chargeTime
+            stream.Write((ushort)TemperPhysical);   // scaledA
+            stream.Write((ushort)EvolveChance);     // evolveChance
+            stream.Write(ChargeProcTime);           // chargeProcTime
+            stream.Write((byte)MappingFailBonus);   // mappingFailBonus
+            stream.Write((byte)ElementLevel);       // elementLevel
 
-                stream.WritePisc(GemIds[0], GemIds[1], GemIds[2], GemIds[3]);
-                stream.WritePisc(GemIds[4], GemIds[5], GemIds[6], GemIds[7]);
-                stream.WritePisc(GemIds[8], GemIds[9], GemIds[10], GemIds[11]);
-                stream.WritePisc(GemIds[12], GemIds[13], GemIds[14], GemIds[15]); // в 3+ длина данных 36 (когда нет информации), в 1.2 было 56
-                break;
-            case ItemDetailType.Slave:
-                mDetailLength = 30;
-                break;
-            case ItemDetailType.Mate:
-                mDetailLength = 7; // есть расшифровка в items/Summon
-                break;
-            case ItemDetailType.Ucc:
-                mDetailLength = 10; // есть расшифровка в items/UccItem
-                break;
-            case ItemDetailType.Treasure:
-            case ItemDetailType.Location: // нет в 1.2
-                mDetailLength = 25;
-                break;
-            case ItemDetailType.BigFish: // есть расшифровка в items/BigFish
-            case ItemDetailType.Decoration:
-                mDetailLength = 17;
-                break;
-            case ItemDetailType.MusicSheet:
-                mDetailLength = 9; // есть расшифровка в items/MusicSheetItem
-                break;
-            case ItemDetailType.Glider:
-                mDetailLength = 5;
-                break;
-            case ItemDetailType.SlaveEquipment: // нет в 1.2
-                mDetailLength = 13;
-                break;
-            default:
-                break;
+            var gems = GemIds;
+            long GetGem(int index) => gems != null && index < gems.Length ? gems[index] : 0;
+            stream.WritePisc(GetGem(0), GetGem(1), GetGem(2), GetGem(3));
+            stream.WritePisc(GetGem(4), GetGem(5), GetGem(6), GetGem(7));
+            stream.WritePisc(GetGem(8), GetGem(9), GetGem(10), GetGem(11));
+            stream.WritePisc(GetGem(12), GetGem(13), GetGem(14), GetGem(15));
+            stream.WritePisc(GetGem(16), GetGem(17));
         }
-        mDetailLength -= 1;
-        if (mDetailLength > 0)
+        else if (detailType is >= 2 and <= 14)
         {
-            Detail = new byte[mDetailLength];
-            stream.Write(Detail);
+            var len = GetDetailPayloadLength(detailType);
+            var detail = Detail ?? Array.Empty<byte>();
+            if (detail.Length == len)
+            {
+                stream.Write(detail);
+            }
+            else
+            {
+                var buf = new byte[len];
+                if (detail.Length > 0)
+                    Array.Copy(detail, buf, Math.Min(detail.Length, len));
+                stream.Write(buf);
+            }
         }
+    }
+
+    public static int GetDetailPayloadLength(byte detailType)
+    {
+        return detailType switch
+        {
+            2 => 33,
+            3 => 20,
+            4 => 9,
+            5 => 24,
+            6 => 16,
+            7 => 16,
+            8 => 8,
+            9 => 4,
+            10 => 12,
+            11 => 24,
+            12 => 10,
+            13 => 13,
+            14 => 8,
+            _ => 0
+        };
     }
 
     public virtual bool HasFlag(ItemFlag flag)

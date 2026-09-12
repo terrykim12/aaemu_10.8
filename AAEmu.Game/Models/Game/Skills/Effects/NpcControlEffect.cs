@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 using AAEmu.Game.Core.Packets;
 using AAEmu.Game.GameData;
@@ -77,15 +77,15 @@ public class NpcControlEffect : EffectTemplate
                                         break;
                                     case AiCommandCategory.FollowPath:
                                         {
-                                            if (aiCommands.Param1 == 1) // TODO может быть несколько маршрутов, используем первый // there may be several routes, we use the first one
+                                            if (aiCommands.Param1 == "1") // TODO может быть несколько маршрутов, используем первый // there may be several routes, we use the first one
                                                 fileName = aiCommands.Param2;
                                             break;
                                         }
                                     case AiCommandCategory.UseSkill:
-                                        skillId = aiCommands.Param1;
+                                        skillId = uint.TryParse(aiCommands.Param1, out var parsedSkillId) ? parsedSkillId : 0u;
                                         break;
                                     case AiCommandCategory.Timeout:
-                                        timeout = aiCommands.Param1;
+                                        timeout = uint.TryParse(aiCommands.Param1, out var parsedTimeout) ? parsedTimeout : 0u;
                                         break;
                                     default:
                                         throw new NotSupportedException(nameof(aiCommands.CmdId));
@@ -154,10 +154,10 @@ public class NpcControlEffect : EffectTemplate
                                         }
                                         break;
                                     case AiCommandCategory.UseSkill:
-                                        skillId = aiCommands.Param1;
+                                        skillId = uint.TryParse(aiCommands.Param1, out var parsedSkillId) ? parsedSkillId : 0u;
                                         break;
                                     case AiCommandCategory.Timeout:
-                                        timeout = aiCommands.Param1;
+                                        timeout = uint.TryParse(aiCommands.Param1, out var parsedTimeout) ? parsedTimeout : 0u;
                                         break;
                                     default:
                                         throw new NotSupportedException(nameof(aiCommands.CmdId));

@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
 using AAEmu.Commons.Utils;
 using AAEmu.Game.Core.Managers;
@@ -36,6 +36,11 @@ public class ItemGameData : Singleton<ItemGameData>, IGameDataLoader
             {
                 while (reader.Read())
                 {
+                    if (reader.IsDBNull("item_id") ||
+                        reader.IsDBNull("item_grade_id") ||
+                        reader.IsDBNull("buff_id"))
+                        continue;
+
                     var itemId = reader.GetUInt32("item_id");
                     var itemGrade = reader.GetByte("item_grade_id");
                     var buffId = reader.GetUInt32("buff_id");
@@ -43,7 +48,7 @@ public class ItemGameData : Singleton<ItemGameData>, IGameDataLoader
                     if (!_itemGradeBuffs.ContainsKey(itemId))
                         _itemGradeBuffs.Add(itemId, new Dictionary<byte, uint>());
 
-                    _itemGradeBuffs[itemId].Add(itemGrade, buffId);
+                    _itemGradeBuffs[itemId][itemGrade] = buffId;
                 }
             }
         }

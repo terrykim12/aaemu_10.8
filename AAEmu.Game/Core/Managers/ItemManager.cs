@@ -245,43 +245,25 @@ public class ItemManager : Singleton<ItemManager>
     public List<Item> GetLootConvertFish(uint templateId)
     {
         var items = new List<Item>();
-        var lootPackConvertFishes = GetLootPackIdByItemId(templateId);
+        var convertFishes = GetLootPackIdByItemId(templateId);
 
-        if (lootPackConvertFishes.Count <= 0)
+        // 10.0.2.13: doodad_func_convert_fish_items now maps the source fish (item_id) directly to an output
+        // item (convert_item_id) — there is no loot pack to roll. Create the converted item directly.
+        foreach (var convertFish in convertFishes)
         {
-            return items;
-        }
+            if (convertFish.ConvertItemId == 0)
+                continue;
 
-        foreach (var lootPackConvertFish in lootPackConvertFishes)
-        {
-            var lootPacks = LootGameData.Instance.GetPack(lootPackConvertFish.LootPackId);
-            var dropRateMax = (uint)0;
-            for (var ui = 0; ui < lootPacks.Loots?.Count; ui++)
+            items.Add(new Item
             {
-                dropRateMax += lootPacks.Loots[ui].DropRate;
-            }
-            var dropRateItem = Rand.Next(0, dropRateMax);
-            var dropRateItemId = 0u;
-            for (var uii = 0; uii < (lootPacks.Loots?.Count ?? 0); uii++)
-            {
-                if (lootPacks.Loots?[uii].DropRate + dropRateItemId >= dropRateItem)
-                {
-                    var item = new Item();
-                    item.TemplateId = lootPacks.Loots[uii].ItemId;
-                    item.CreateTime = DateTime.UtcNow;
-                    item.Id = Instance.GetNewId();
-                    item.MadeUnitId = templateId;
-                    item.Count = Rand.Next(lootPacks.Loots[uii].MinAmount, lootPacks.Loots[uii].MaxAmount);
-                    items.Add(item);
-                    break;
-                }
+                TemplateId = convertFish.ConvertItemId,
+                CreateTime = DateTime.UtcNow,
+                Id = Instance.GetNewId(),
+                MadeUnitId = templateId,
+                Count = 1
+            });
 
-                if (lootPacks.Loots != null)
-                {
-                    dropRateItemId += lootPacks.Loots[uii].DropRate;
-                }
-            }
-            break; // TODO use only the first item
+            break;
         }
 
         return items;
@@ -622,7 +604,6 @@ public class ItemManager : Singleton<ItemManager>
 
         SkillManager.Instance.OnSkillsLoaded += OnSkillsLoaded;
 
-        using (var connection2 = SQLite.CreateConnection("Data", "compact.server.table.sqlite3"))
         using (var connection = SQLite.CreateConnection())
         {
             Logger.Info("Loading item templates ...");
@@ -751,9 +732,6 @@ public class ItemManager : Singleton<ItemManager>
                         template.Id = reader.GetUInt32("id");
                         //KindId = reader.GetUInt32("kind_id"); // there is no such field in the database for version 3.0.3.0
                         template.Speed = reader.GetInt32("speed");
-                        template.ExtraDamagePierceFactor = reader.GetInt32("extra_damage_pierce_factor");
-                        template.ExtraDamageSlashFactor = reader.GetInt32("extra_damage_slash_factor");
-                        template.ExtraDamageBluntFactor = reader.GetInt32("extra_damage_blunt_factor");
                         template.MaxRange = reader.GetInt32("max_range");
                         template.Angle = reader.GetInt32("angle");
                         template.EnchantedDps1000 = reader.GetInt32("enchanted_dps1000");
@@ -806,13 +784,10 @@ public class ItemManager : Singleton<ItemManager>
                     {
                         var template = new WearableKind();
                         template.TypeId = reader.GetUInt32("armor_type_id");
-                        //template.ArmorRatio = reader.GetInt32("armor_ratio"); // there is no such field in the database for version 3.0.3.0
-                        //template.MagicResistanceRatio = reader.GetInt32("magic_resistance_ratio"); // there is no such field in the database for version 3.0.3.0
+                        template.ArmorRatio = reader.GetInt32("armor_ratio");
+                        template.MagicResistanceRatio = reader.GetInt32("magic_resistance_ratio");
                         template.FullBufId = reader.GetUInt32("full_buff_id");
                         template.HalfBufId = reader.GetUInt32("half_buff_id");
-                        template.ExtraDamagePierce = reader.GetInt32("extra_damage_pierce");
-                        template.ExtraDamageSlash = reader.GetInt32("extra_damage_slash");
-                        template.ExtraDamageBlunt = reader.GetInt32("extra_damage_blunt");
                         template.DurabilityRatio = reader.GetFloat("durability_ratio");
                         _wearableKinds.Add(template.TypeId, template);
                     }
@@ -1106,7 +1081,6 @@ public class ItemManager : Singleton<ItemManager>
                             DeclareSiegeZoneGroupId = reader.GetUInt32("declare_siege_zone_group_id"),
                             Heavy = reader.GetBoolean("heavy"),
                             Asset2Id = reader.GetUInt32("asset2_id"),
-                            NormalSpeciality = reader.GetBoolean("normal_specialty"),
                             UseAsStat = reader.GetBoolean("use_as_stat"),
                             SkinKindId = reader.GetUInt32("skin_kind_id")
                         };
@@ -1140,8 +1114,6 @@ public class ItemManager : Singleton<ItemManager>
                         template.Name = reader.IsDBNull("name") ? "" : reader.GetString("name");
                         template.CategoryId = reader.GetInt32("category_id");
                         template.Level = reader.GetInt32("level");
-                        template.Price = reader.GetInt32("price");
-                        template.Refund = reader.GetInt32("refund");
                         template.BindType = (ItemBindType)reader.GetUInt32("bind_id");
                         template.PickupLimit = reader.GetInt32("pickup_limit");
                         template.MaxCount = reader.GetInt32("max_stack_size");
@@ -1153,11 +1125,10 @@ public class ItemManager : Singleton<ItemManager>
                         template.Gradable = reader.GetBoolean("gradable", true);
                         template.LootMulti = reader.GetBoolean("loot_multi", true);
                         template.LootQuestId = reader.GetUInt32("loot_quest_id");
-                        template.HonorPrice = reader.GetInt32("honor_price");
                         template.ExpAbsLifetime = reader.GetInt32("exp_abs_lifetime");
                         template.ExpOnlineLifetime = reader.GetInt32("exp_online_lifetime");
                         template.SpecialtyZoneId = !reader.IsDBNull("specialty_zone_id") ? reader.GetUInt32("specialty_zone_id") : 0;
-                        template.ExpDate = reader.IsDBNull("exp_date") ? reader.GetInt32("exp_date") : 0;
+                        template.ExpDate = !reader.IsDBNull("exp_date") ? reader.GetDateTime("exp_date") : DateTime.MinValue;
                         template.LevelRequirement = reader.GetInt32("level_requirement");
                         template.AuctionCategoryA = reader.IsDBNull("auction_a_category_id") ? 0 : reader.GetInt32("auction_a_category_id");
                         template.AuctionCategoryB = reader.IsDBNull("auction_b_category_id") ? 0 : reader.GetInt32("auction_b_category_id");
@@ -1165,7 +1136,6 @@ public class ItemManager : Singleton<ItemManager>
                         template.LevelLimit = reader.GetInt32("level_limit");
                         template.FixedGrade = reader.GetInt32("fixed_grade");
                         template.Disenchantable = reader.GetBoolean("disenchantable", true);
-                        template.LivingPointPrice = reader.GetInt32("living_point_price");
                         template.CharGender = reader.GetByte("char_gender_id");
 
                         _templates.TryAdd(template.Id, template);
@@ -1237,25 +1207,6 @@ public class ItemManager : Singleton<ItemManager>
                 }
             }
 
-            using (var command = connection.CreateCommand())
-            {
-                command.CommandText = "SELECT * FROM item_cap_scales";
-                command.Prepare();
-                using (var sqliteReader = command.ExecuteReader())
-                using (var reader = new SQLiteWrapperReader(sqliteReader))
-                {
-                    while (reader.Read())
-                    {
-                        var template = new ItemCapScale();
-                        //template.Id = reader.GetUInt32("id"); // there is no such field in the database for version 3.0.3.0
-                        template.SkillId = reader.GetUInt32("skill_id");
-                        template.ScaleMin = reader.GetInt32("scale_min");
-                        template.ScaleMax = reader.GetInt32("scale_max");
-
-                        _itemCapScales.TryAdd(template.SkillId, template);
-                    }
-                }
-            }
 
             // Load main item templates
 
@@ -1350,7 +1301,7 @@ public class ItemManager : Singleton<ItemManager>
                 }
             }
 
-            using (var command = connection2.CreateCommand())
+            using (var command = connection.CreateCommand())
             {
                 command.CommandText = "SELECT * FROM loot_pack_dropping_npcs";
                 command.Prepare();
@@ -1388,7 +1339,7 @@ public class ItemManager : Singleton<ItemManager>
                         var template = new LootPackConvertFish();
                         template.Id = reader.GetUInt32("id");
                         template.ItemId = reader.GetUInt32("item_id");
-                        template.LootPackId = reader.GetUInt32("loot_pack_id");
+                        template.ConvertItemId = reader.GetUInt32("convert_item_id", 0);
                         template.DoodadFuncConvertFishId = reader.GetUInt32("doodad_func_convert_fish_id");
                         List<LootPackConvertFish> lootPackConvertFish;
                         if (_lootPackConvertFish.TryGetValue(template.ItemId, out var value))
@@ -1512,8 +1463,33 @@ public class ItemManager : Singleton<ItemManager>
             return null;
     }
 
+    private static string GetSlotTypeStorageType(MySqlConnection connection, MySqlTransaction transaction, string table)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "SELECT DATA_TYPE FROM information_schema.COLUMNS " +
+                              "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = @table AND COLUMN_NAME = 'slot_type'";
+        command.Parameters.AddWithValue("@table", table);
+        var storageType = command.ExecuteScalar() as string;
+        // Validate before any writes in this save operation.
+        EncodeSlotType(SlotType.Equipment, storageType);
+        return storageType;
+    }
+
+    internal static object EncodeSlotType(SlotType slotType, string storageType)
+    {
+        return storageType switch
+        {
+            "tinyint" or "smallint" or "mediumint" or "int" or "bigint" => (int)slotType,
+            "enum" or "varchar" or "char" => slotType.ToString(),
+            _ => throw new InvalidOperationException($"Unsupported slot_type storage type: {storageType}")
+        };
+    }
+
     public (int, int, int) Save(MySqlConnection connection, MySqlTransaction transaction)
     {
+        var containerSlotStorage = GetSlotTypeStorageType(connection, transaction, "item_containers");
+        var itemSlotStorage = GetSlotTypeStorageType(connection, transaction, "items");
         var deleteCount = 0;
         var updateCount = 0;
         var containerUpdateCount = 0;
@@ -1569,7 +1545,7 @@ public class ItemManager : Singleton<ItemManager>
                     command.Parameters.Clear();
                     command.Parameters.AddWithValue("@container_id", c.ContainerId);
                     command.Parameters.AddWithValue("@container_type", c.ContainerTypeName());
-                    command.Parameters.AddWithValue("@slot_type", c.ContainerType.ToString());
+                    command.Parameters.AddWithValue("@slot_type", EncodeSlotType(c.ContainerType, containerSlotStorage));
                     command.Parameters.AddWithValue("@container_size", c.ContainerSize);
                     command.Parameters.AddWithValue("@owner_id", c.OwnerId);
                     command.Parameters.AddWithValue("@mate_id", c.MateId);
@@ -1631,7 +1607,7 @@ public class ItemManager : Singleton<ItemManager>
                     command.Parameters.AddWithValue("@type", item.GetType().ToString());
                     command.Parameters.AddWithValue("@template_id", item.TemplateId);
                     command.Parameters.AddWithValue("@container_id", item._holdingContainer?.ContainerId ?? 0);
-                    command.Parameters.AddWithValue("@slot_type", item.SlotType.ToString());
+                    command.Parameters.AddWithValue("@slot_type", EncodeSlotType(item.SlotType, itemSlotStorage));
                     command.Parameters.AddWithValue("@slot", item.Slot);
                     command.Parameters.AddWithValue("@count", item.Count);
                     command.Parameters.AddWithValue("@details", details.GetBytes());

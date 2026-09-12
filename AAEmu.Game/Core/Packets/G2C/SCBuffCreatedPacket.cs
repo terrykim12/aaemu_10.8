@@ -1,4 +1,4 @@
-﻿using AAEmu.Commons.Network;
+using AAEmu.Commons.Network;
 using AAEmu.Game.Core.Managers.World;
 using AAEmu.Game.Core.Network.Game;
 using AAEmu.Game.Models.Game.Char;
@@ -19,7 +19,7 @@ public class SCBuffCreatedPacket : GamePacket
     public override PacketStream Write(PacketStream stream)
     {
         stream.Write(_buff.SkillCaster);     // skillCaster
-        stream.Write((_buff.Caster is Character character) ? character.Id : 0); // casterId
+        stream.Write(_buff.Caster != null ? (ulong)_buff.Caster.Id : 0UL); // casterId (8 bytes uint64)
         stream.WriteBc(_buff.Owner.ObjId);   // targetId
         stream.Write(_buff.Index);           // buffId
         stream.Write(_buff.Template.BuffId); // t template buffId

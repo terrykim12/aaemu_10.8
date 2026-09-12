@@ -1,4 +1,4 @@
-﻿using AAEmu.Commons.Network;
+using AAEmu.Commons.Network;
 using AAEmu.Game.Core.Network.Game;
 using AAEmu.Game.Core.Packets.G2C;
 
@@ -12,7 +12,6 @@ public class CSRefreshInCharacterListPacket : GamePacket
 
     public override void Read(PacketStream stream)
     {
-        Logger.Debug("RefreshInCharacterList");
-        Connection.SendPacket(new SCRefreshInCharacterListPacket());
+        Logger.Debug("RefreshInCharacterList (poll, no reply)");
     }
 }

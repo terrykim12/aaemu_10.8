@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -328,7 +328,7 @@ public class SkillManager : Singleton<SkillManager>, ISkillManager
         _skillReagents = new Dictionary<uint, SkillReagent>();
         _skillProducts = new Dictionary<uint, SkillProduct>();
 
-        using (var connection2 = SQLite.CreateConnection("Data", "compact.server.table.sqlite3"))
+        using (var connection2 = SQLite.CreateConnection("Data", "game_decrypted.sqlite3"))
         using (var connection = SQLite.CreateConnection())
         {
             Logger.Info("Loading skills...");
@@ -363,7 +363,6 @@ public class SkillManager : Singleton<SkillManager>, ISkillManager
                         template.TargetRelation = (SkillTargetRelation)reader.GetInt32("target_relation_id");
                         template.TargetAreaCount = reader.GetInt32("target_area_count");
                         template.TargetAreaRadius = reader.GetInt32("target_area_radius");
-                        template.TargetSiege = reader.GetBoolean("target_siege", true);
                         template.WeaponSlotForAngleId = reader.GetInt32("weapon_slot_for_angle_id");
                         template.TargetAngle = reader.GetInt32("target_angle");
                         template.WeaponSlotForRangeId = reader.GetInt32("weapon_slot_for_range_id");
@@ -388,11 +387,9 @@ public class SkillManager : Singleton<SkillManager>, ISkillManager
                         template.TargetDead = reader.GetBoolean("target_dead", true);
                         template.ChannelingBuffId = reader.GetUInt32("channeling_buff_id", 0);
                         template.ReagentCorpseStatusId = reader.GetInt32("reagent_corpse_status_id");
-                        template.SourceDead = reader.GetBoolean("source_dead", true);
                         template.LevelStep = reader.GetInt32("level_step");
                         template.ValidHeight = reader.GetFloat("valid_height");
                         template.TargetValidHeight = reader.GetFloat("target_valid_height");
-                        template.SourceMount = reader.GetBoolean("source_mount", true);
                         template.StopCastingOnBigHit = reader.GetBoolean("stop_casting_on_big_hit", true);
                         template.StopChannelingOnBigHit = reader.GetBoolean("stop_channeling_on_big_hit", true);
                         template.AutoLearn = reader.GetBoolean("auto_learn", true);
@@ -403,13 +400,11 @@ public class SkillManager : Singleton<SkillManager>, ISkillManager
                         template.ManaLevelMd = reader.GetFloat("mana_level_md");
                         template.Unmount = reader.GetBoolean("unmount", true);
                         template.DamageTypeId = reader.GetUInt32("damage_type_id", 0);
-                        template.AllowToPrisoner = reader.GetBoolean("allow_to_prisoner", true);
                         //template.MilestoneId = reader.GetUInt32("milestone_id", 0); // there is no such field in the database for version 3.0.3.0
                         template.MatchAnimation = reader.GetBoolean("match_animation", true);
                         template.Plot = reader.IsDBNull("plot_id") ? null : PlotManager.Instance.GetPlot(reader.GetUInt32("plot_id"));
                         template.UseAnimTime = reader.GetBoolean("use_anim_time", true);
                         template.ConsumeLaborPower = reader.GetInt32("consume_lp", 0);
-                        template.SourceStun = reader.GetBoolean("source_stun", true);
                         template.TargetAlive = reader.GetBoolean("target_alive", true);
                         template.TargetWater = reader.GetBoolean("target_water", true);
                         template.CastingInc = reader.GetInt32("casting_inc");
@@ -425,7 +420,7 @@ public class SkillManager : Singleton<SkillManager>, ISkillManager
                         template.OrUnitReqs = reader.GetBoolean("or_unit_reqs", true);
                         template.DefaultGcd = reader.GetBoolean("default_gcd", true);
                         template.KeepManaRegen = reader.GetBoolean("keep_mana_regen", true);
-                        template.CrimePoint = reader.GetInt32("crime_point");
+                        template.CrimePoint = reader.GetInt32("crime_point", 0);
                         template.LevelRuleNoConsideration =
                             reader.GetBoolean("level_rule_no_consideration", true);
                         template.UseWeaponCooldownTime = reader.GetBoolean("use_weapon_cooldown_time", true);
@@ -433,12 +428,8 @@ public class SkillManager : Singleton<SkillManager>, ISkillManager
                         template.CustomGcd = reader.GetInt32("custom_gcd");
                         template.CancelOngoingBuffs = reader.GetBoolean("cancel_ongoing_buffs", true);
                         template.CancelOngoingBuffExceptionTagId = reader.GetUInt32("cancel_ongoing_buff_exception_tag_id", 0);
-                        template.SourceCannotUseWhileWalk =
-                            reader.GetBoolean("source_cannot_use_while_walk", true);
-                        template.SourceMountMate = reader.GetBoolean("source_mount_mate", true);
                         template.CheckTerrain = reader.GetBoolean("check_terrain", true);
                         template.TargetOnlyWater = reader.GetBoolean("target_only_water", true);
-                        template.SourceNotSwim = reader.GetBoolean("source_not_swim", true);
                         template.TargetPreoccupied = reader.GetBoolean("target_preoccupied", true);
                         template.StopChannelingOnStartSkill =
                             reader.GetBoolean("stop_channeling_on_start_skill", true);
@@ -446,10 +437,8 @@ public class SkillManager : Singleton<SkillManager>, ISkillManager
                         template.TargetMyNpc = reader.GetBoolean("target_my_npc", true);
                         template.GainLifePoint = reader.GetInt32("gain_life_point");
                         template.TargetFishing = reader.GetBoolean("target_fishing", true);
-                        template.SourceNoSlave = reader.GetBoolean("source_no_slave", true);
                         template.AutoReUse = reader.GetBoolean("auto_reuse", true);
                         template.AutoReUseDelay = reader.GetInt32("auto_reuse_delay", 0);
-                        template.SourceNotCollided = reader.GetBoolean("source_not_collided", true);
                         template.SkillPoints = reader.GetInt32("skill_points");
                         template.DoodadHitFamily = reader.GetInt32("doodad_hit_family");
                         _skills.Add(template.Id, template);
@@ -468,14 +457,22 @@ public class SkillManager : Singleton<SkillManager>, ISkillManager
                 {
                     while (reader.Read())
                     {
-                        var id = (uint)reader.GetInt32("skill_id");
+                        var id = (uint)reader.GetInt32("skill_id", 0);
+
+                        if (!_skills.TryGetValue(id, out var defSkillTemplate))
+                        {
+                            Logger.Warn($"Default skill {id} does not exist in loaded skills; skipping.");
+                            continue;
+                        }
+
                         var skill = new DefaultSkill
                         {
-                            Template = _skills[id],
-                            Slot = reader.GetByte("slot_index"),
+                            Template = defSkillTemplate,
+                            Slot = reader.GetByte("slot_index", 0),
                             AddToSlot = reader.GetBoolean("add_to_slot", true)
                         };
-                        _defaultSkills.TryAdd(skill.Template.Id, skill);
+
+                        _defaultSkills[skill.Template.Id] = skill;
                     }
                 }
             }
@@ -540,7 +537,6 @@ public class SkillManager : Singleton<SkillManager>, ISkillManager
                         template.Ragdoll = reader.GetBoolean("ragdoll", true);
                         template.OneTime = reader.GetBoolean("one_time", true);
                         template.ReflectionChance = reader.GetInt32("reflection_chance");
-                        template.ReflectionTypeId = reader.GetUInt32("reflection_type_id");
                         template.RequireBuffId = reader.GetUInt32("require_buff_id", 0);
                         template.Taunt = reader.GetBoolean("taunt", true);
                         template.TauntWithTopAggro = reader.GetBoolean("taunt_with_top_aggro", true);
@@ -716,12 +712,18 @@ public class SkillManager : Singleton<SkillManager>, ISkillManager
                 {
                     while (reader.Read())
                     {
-                        var buffId = reader.GetUInt32("buff_id");
-                        var template = _buffs[buffId];
-                        var tickEffect = new TickEffect();
-                        tickEffect.EffectId = reader.GetUInt32("effect_id");
-                        tickEffect.TargetBuffTagId = reader.GetUInt32("target_buff_tag_id", 0);
-                        tickEffect.TargetNoBuffTagId = reader.GetUInt32("target_nobuff_tag_id", 0);
+                        var buffId = reader.GetUInt32("buff_id", 0);
+
+                        if (!_buffs.TryGetValue(buffId, out var template))
+                            continue;
+
+                        var tickEffect = new TickEffect
+                        {
+                            EffectId = reader.GetUInt32("effect_id", 0),
+                            TargetBuffTagId = reader.GetUInt32("target_buff_tag_id", 0),
+                            TargetNoBuffTagId = reader.GetUInt32("target_nobuff_tag_id", 0)
+                        };
+
                         template.TickEffects.Add(tickEffect);
                     }
                 }
@@ -739,9 +741,9 @@ public class SkillManager : Singleton<SkillManager>, ISkillManager
                             continue;
                         var buff = _buffs[buffId];
                         var template = new BonusTemplate();
-                        template.Attribute = (UnitAttribute)reader.GetByte("unit_attribute_id");
+                        template.Attribute = (UnitAttribute)reader.GetUInt32("unit_attribute_id", 0);
                         template.ModifierType = (UnitModifierType)reader.GetByte("unit_modifier_type_id");
-                        template.Value = reader.GetInt32("value");
+                        template.Value = reader.GetInt64("value", 0);
                         template.LinearLevelBonus = reader.GetInt32("linear_level_bonus");
                         buff.Bonuses.Add(template);
                     }
@@ -760,7 +762,7 @@ public class SkillManager : Singleton<SkillManager>, ISkillManager
                             continue;
                         var buff = _buffs[buffId];
                         var template = new DynamicBonusTemplate();
-                        template.Attribute = (UnitAttribute)reader.GetByte("unit_attribute_id");
+                        template.Attribute = (UnitAttribute)reader.GetUInt32("unit_attribute_id", 0);
                         template.ModifierType = (UnitModifierType)reader.GetByte("unit_modifier_type_id");
                         template.FuncId = reader.GetUInt32("func_id");
                         template.FuncType = reader.GetString("func_type");
@@ -970,7 +972,7 @@ public class SkillManager : Singleton<SkillManager>, ISkillManager
                         template.ManaStealRatio = reader.GetInt32("mana_steal_ratio");
                         template.DpsMultiplier = reader.GetFloat("dps_multiplier");
                         template.WeaponSlotId = reader.GetInt32("weapon_slot_id");
-                        //template.CheckCrime = reader.GetBoolean("check_crime", true); // there is no such field in the database for version 3.0.3.0
+                        template.CheckCrime = reader.GetBoolean("crime", true);
                         template.HitAnimTimingId = reader.GetUInt32("hit_anim_timing_id");
                         template.UseTargetChargedBuff = reader.GetBoolean("use_target_charged_buff", true);
                         template.TargetChargedBuffId = reader.GetUInt32("target_charged_buff_id", 0);
@@ -987,7 +989,7 @@ public class SkillManager : Singleton<SkillManager>, ISkillManager
                         template.UsePercentDamage = reader.GetBoolean("use_percent_damage", true);
                         template.PercentMin = reader.GetInt32("percent_min");
                         template.PercentMax = reader.GetInt32("percent_max");
-                        template.UseCurrentHealth = reader.GetBoolean("use_current_health", true);
+                        template.UseCurrentHealth = reader.GetBoolean("use_source_health", true);
                         template.TargetHealthMin = reader.GetInt32("target_health_min");
                         template.TargetHealthMax = reader.GetInt32("target_health_max");
                         template.TargetHealthMul = reader.GetFloat("target_health_mul");
@@ -1437,7 +1439,7 @@ public class SkillManager : Singleton<SkillManager>, ISkillManager
                     {
                         var template = new NpcSpawnerDespawnEffect();
                         template.Id = reader.GetUInt32("id");
-                        template.SpawnerId = reader.GetUInt32("spawner_id");
+                        template.SpawnerId = reader.GetUInt32("spawner_id", 0);
                         _effects["NpcSpawnerDespawnEffect"].Add(template.Id, template);
                     }
                 }
@@ -1506,39 +1508,6 @@ public class SkillManager : Singleton<SkillManager>, ISkillManager
                         template.Value3 = reader.GetInt32("value3");
                         template.Value4 = reader.GetInt32("value4");
                         _effects["SpecialEffect"].Add(template.Id, template);
-                    }
-                }
-            }
-
-            using (var command = connection.CreateCommand())
-            {
-                command.CommandText = "SELECT * FROM train_craft_effects";
-                command.Prepare();
-                using (var reader = new SQLiteWrapperReader(command.ExecuteReader()))
-                {
-                    while (reader.Read())
-                    {
-                        var template = new TrainCraftEffect();
-                        template.Id = reader.GetUInt32("id");
-                        template.CraftId = reader.GetUInt32("craft_id");
-                        _effects["TrainCraftEffect"].Add(template.Id, template);
-                    }
-                }
-            }
-
-            using (var command = connection.CreateCommand())
-            {
-                command.CommandText = "SELECT * FROM train_craft_rank_effects";
-                command.Prepare();
-                using (var reader = new SQLiteWrapperReader(command.ExecuteReader()))
-                {
-                    while (reader.Read())
-                    {
-                        var template = new TrainCraftRankEffect();
-                        template.Id = reader.GetUInt32("id");
-                        template.KindId = reader.GetUInt32("kind_id");
-                        template.RankId = reader.GetUInt32("rank_id");
-                        _effects["TrainCraftRankEffect"].Add(template.Id, template);
                     }
                 }
             }
@@ -1693,14 +1662,14 @@ public class SkillManager : Singleton<SkillManager>, ISkillManager
                     {
                         var combatBuffTemplate = new CombatBuffTemplate()
                         {
-                            Id = reader.GetUInt32("id"),
+                            Id = reader.GetUInt32("id", 0),
                             HitSkillId = reader.GetUInt32("hit_skill_id", 0),
-                            HitType = (SkillHitType)reader.GetUInt32("hit_type_id"),
-                            BuffId = reader.GetUInt32("buff_id"),
+                            HitType = (SkillHitType)reader.GetUInt32("hit_type_bits", 0),
+                            BuffId = reader.GetUInt32("buff_id", 0),
                             BuffFromSource = reader.GetBoolean("buff_from_source", true),
                             BuffToSource = reader.GetBoolean("buff_to_source", true),
                             ReqSkillId = reader.GetUInt32("req_skill_id", 0),
-                            ReqBuffId = reader.GetUInt32("req_buff_id"),
+                            ReqBuffId = reader.GetUInt32("req_buff_id", 0),
                             IsHealSpell = reader.GetBoolean("is_heal_spell", true)
                         };
 

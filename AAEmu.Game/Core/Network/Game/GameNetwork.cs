@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net;
 
 using AAEmu.Commons.Network.Core;
@@ -154,6 +154,7 @@ public class GameNetwork : Singleton<GameNetwork>
         RegisterPacket(CSOffsets.CSQuitResponsePacket, 5, typeof(CSQuitResponsePacket));
         RegisterPacket(CSOffsets.CSSecurityReportPacket, 5, typeof(CSSecurityReportPacket));
         RegisterPacket(CSOffsets.CSEnprotectStubCallResponsePacket, 5, typeof(CSEnprotectStubCallResponsePacket));
+        RegisterPacket(CSOffsets.off_3A0FA8B0, 5, typeof(CSClientReport0x8aPacket));
         RegisterPacket(CSOffsets.CSRepresentCharacterPacket, 5, typeof(CSRepresentCharacterPacket));
         //RegisterPacket(CSOffsets.CSPacketUnknown0x0aaPacket, 5, typeof(CSPacketUnknown0x0aaPacket));
         //RegisterPacket(CSOffsets.CSPacketUnknown0x166Packet, 5, typeof(CSPacketUnknown0x166Packet));

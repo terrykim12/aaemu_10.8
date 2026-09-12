@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -66,7 +66,7 @@ public sealed class Mate : Unit
                 if (bonus.Template.ModifierType == UnitModifierType.Percent)
                     res += (int)(res * bonus.Value / 100f);
                 else
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
             }
 
             return res;
@@ -89,7 +89,7 @@ public sealed class Mate : Unit
                 if (bonus.Template.ModifierType == UnitModifierType.Percent)
                     res += (int)(res * bonus.Value / 100f);
                 else
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
             }
 
             return res;
@@ -112,7 +112,7 @@ public sealed class Mate : Unit
                 if (bonus.Template.ModifierType == UnitModifierType.Percent)
                     res += (int)(res * bonus.Value / 100f);
                 else
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
             }
 
             return res;
@@ -135,7 +135,7 @@ public sealed class Mate : Unit
                 if (bonus.Template.ModifierType == UnitModifierType.Percent)
                     res += (int)(res * bonus.Value / 100f);
                 else
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
             }
 
             return res;
@@ -158,7 +158,7 @@ public sealed class Mate : Unit
                 if (bonus.Template.ModifierType == UnitModifierType.Percent)
                     res += (int)(res * bonus.Value / 100f);
                 else
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
             }
 
             return res;
@@ -178,7 +178,7 @@ public sealed class Mate : Unit
                 if (bonus.Template.ModifierType == UnitModifierType.Percent)
                     res += (int)(res * bonus.Value / 100f);
                 else
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
             }
 
             return res;
@@ -237,7 +237,7 @@ public sealed class Mate : Unit
                 if (bonus.Template.ModifierType == UnitModifierType.Percent)
                     res += (int)(res * bonus.Value / 100f);
                 else
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
             }
 
             return res;
@@ -268,7 +268,7 @@ public sealed class Mate : Unit
                 if (bonus.Template.ModifierType == UnitModifierType.Percent)
                     res += (int)(res * bonus.Value / 100f);
                 else
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
             }
 
             return res;
@@ -300,7 +300,7 @@ public sealed class Mate : Unit
                 if (bonus.Template.ModifierType == UnitModifierType.Percent)
                     res += (int)(res * bonus.Value / 100f);
                 else
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
             }
 
             return res;
@@ -331,7 +331,7 @@ public sealed class Mate : Unit
                 if (bonus.Template.ModifierType == UnitModifierType.Percent)
                     res += (int)(res * bonus.Value / 100f);
                 else
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
             }
 
             return res;
@@ -362,7 +362,7 @@ public sealed class Mate : Unit
                 if (bonus.Template.ModifierType == UnitModifierType.Percent)
                     res += (int)(res * bonus.Value / 100f);
                 else
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
             }
 
             return res;
@@ -412,7 +412,7 @@ public sealed class Mate : Unit
                 if (bonus.Template.ModifierType == UnitModifierType.Percent)
                     res += (res * bonus.Value / 100f);
                 else
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
             }
             return (int)res;
         }
@@ -439,7 +439,7 @@ public sealed class Mate : Unit
                 if (bonus.Template.ModifierType == UnitModifierType.Percent)
                     res += (res * bonus.Value / 100f);
                 else
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
             }
             return (int)res;
         }
@@ -465,7 +465,7 @@ public sealed class Mate : Unit
                 if (bonus.Template.ModifierType == UnitModifierType.Percent)
                     res += (int)(res * bonus.Value / 100f);
                 else
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
             }
             return res;
         }
@@ -491,7 +491,7 @@ public sealed class Mate : Unit
                 if (bonus.Template.ModifierType == UnitModifierType.Percent)
                     res += (int)(res * bonus.Value / 100f);
                 else
-                    res += bonus.Value;
+                    res += (int)bonus.Value;
             }
             return res;
         }

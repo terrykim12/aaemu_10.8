@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 
 using AAEmu.Commons.Network;
@@ -12,6 +12,7 @@ using AAEmu.Game.Models.Game.Char;
 using AAEmu.Game.Models.Game.Skills;
 using AAEmu.Game.Models.Game.Units;
 using AAEmu.Game.Models.Game.Units.Route;
+using AAEmu.Game.Models.StaticValues;
 
 namespace AAEmu.Game.Core.Packets.C2G;
 
@@ -37,15 +38,13 @@ public class CSSelectCharacterPacket : GamePacket
             MateManager.Instance.RemoveAndDespawnAllActiveOwnedMates(character);
 
             Connection.ActiveChar = character;
-            if (Character.UsedCharacterObjIds.TryGetValue(character.Id, out var oldObjId))
-            {
-                Connection.ActiveChar.ObjId = oldObjId;
-            }
-            else
-            {
-                Connection.ActiveChar.ObjId = ObjectIdManager.Instance.GetNextId();
-                Character.UsedCharacterObjIds.TryAdd(character.Id, character.ObjId);
-            }
+            // Character ObjIds must never collide with world doodads, npcs, or other objects in the client UnitMap.
+            // Client's ProcessUnitState (x2game.dll + 0x3B47FC) performs FindUnitByObjId(ObjId) and aborts spawning
+            // if any existing object in the world map already has the same ObjId.
+            // Using a dedicated range 0x00E00000 (14,680,064) ensures zero collision with ObjectIdManager (< 500,000).
+            const uint CharacterObjIdBase = 0x00E00000;
+            Connection.ActiveChar.ObjId = CharacterObjIdBase + character.Id;
+            Character.UsedCharacterObjIds[character.Id] = Connection.ActiveChar.ObjId;
 
             var mySlave = SlaveManager.Instance.GetActiveSlaveByOwnerObjId(Connection.ActiveChar.ObjId);
             if (mySlave != null)
@@ -66,17 +65,29 @@ public class CSSelectCharacterPacket : GamePacket
             {
                 if (!unit.Buffs.CheckBuff((uint)SkillConstants.Patron)) //TODO Wrong place
                 {
-                    unit.Buffs.AddBuff(new Buff(unit, unit, SkillCaster.GetByType(SkillCasterType.Unit), SkillManager.Instance.GetBuffTemplate(8000011), null, System.DateTime.Now));
+                    var loginBenefitTemplate = SkillManager.Instance.GetBuffTemplate(8000011);
+                    if (loginBenefitTemplate != null)
+                        unit.Buffs.AddBuff(new Buff(unit, unit, SkillCaster.GetByType(SkillCasterType.Unit), loginBenefitTemplate, null, System.DateTime.Now));
+                    else
+                        Logger.Warn("Login benefit buff 8000011 is unavailable in GameData; benefit not applied.");
                 }
 
                 if (!unit.Buffs.CheckBuff((uint)SkillConstants.AuctionLicense)) //TODO Wrong place
                 {
-                    unit.Buffs.AddBuff(new Buff(unit, unit, SkillCaster.GetByType(SkillCasterType.Unit), SkillManager.Instance.GetBuffTemplate(8000012), null, System.DateTime.Now));
+                    var loginBenefitTemplate = SkillManager.Instance.GetBuffTemplate(8000012);
+                    if (loginBenefitTemplate != null)
+                        unit.Buffs.AddBuff(new Buff(unit, unit, SkillCaster.GetByType(SkillCasterType.Unit), loginBenefitTemplate, null, System.DateTime.Now));
+                    else
+                        Logger.Warn("Login benefit buff 8000012 is unavailable in GameData; benefit not applied.");
                 }
             }
 
             Connection.SendPacket(new SCCharacterStatePacket(character));
-            Connection.SendPacket(new SCCharacterGamePointsPacket(character));
+            int[,] initialPoints = {
+                { (int)GamePointKind.Honor, character.HonorPoint },
+                { (int)GamePointKind.Vocation, character.VocationPoint }
+            };
+            Connection.SendPacket(new SCGamePointChangedPacket(initialPoints));
             Connection.ActiveChar.Inventory.Send();
             Connection.SendPacket(new SCActionSlotsPacket(Connection.ActiveChar.Slots));
 

@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
 using AAEmu.Commons.Utils;
 using AAEmu.Game.GameData.Framework;
@@ -82,7 +82,7 @@ public class ItemConversionGameData : Singleton<ItemConversionGameData>, IGameDa
                 {
                     ItemConversionReagent data = new ItemConversionReagent()
                     {
-                        ConversionId = reader.GetUInt32("item_conv_rpack_id"),
+                        ConversionId = reader.GetUInt32("item_conv_rpack_id", 0),
                         ImplId = (ItemImplEnum)reader.GetInt32("item_impl_id"),
                         MinLevel = reader.GetInt32("min_level"),
                         MaxLevel = reader.GetInt32("max_level"),

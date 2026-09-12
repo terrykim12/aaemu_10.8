@@ -1,4 +1,4 @@
-﻿using AAEmu.Commons.Network;
+using AAEmu.Commons.Network;
 using AAEmu.Game.Core.Network.Game;
 using AAEmu.Game.Models.Game.Char;
 
@@ -20,7 +20,7 @@ public class SCCharacterListPacket : GamePacket
         stream.Write(_last);
         stream.Write((byte)_characters.Length);
         foreach (var character in _characters)
-            character.Write(stream);
+            character.WriteLobby1013(stream);
 
         return stream;
     }

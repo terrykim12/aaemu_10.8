@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading;
@@ -60,15 +60,32 @@ public class GameConnection
 
     public void SendPacket(GamePacket packet)
     {
+        if (packet == null || packet.TypeId == 0xFFF)
+            return;
+
         lock (WriteLock)
         {
             packet.Connection = this;
-            SendPacket(packet.Encode());
+            var encoded = packet.Encode();
+            if (encoded == null)
+                return;
+
+            if (packet.TypeId == 0x28B)
+            {
+                byte[] raw = (byte[])encoded;
+                bool res = _session != null && _session.SendAsync(raw);
+                NLog.LogManager.GetCurrentClassLogger().Info($"[WIRE-DIAG-0x28B] FrameSize={raw.Length}B, SendAsyncResult={res}, Bytes={BitConverter.ToString(raw, 0, Math.Min(32, raw.Length))}");
+                return;
+            }
+            SendPacket(encoded);
         }
     }
 
     public void SendPacket(byte[] packet)
     {
+        if (packet == null)
+            return;
+
         _session?.SendPacket(packet);
     }
 

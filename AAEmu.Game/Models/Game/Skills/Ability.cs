@@ -1,4 +1,4 @@
-﻿namespace AAEmu.Game.Models.Game.Skills;
+namespace AAEmu.Game.Models.Game.Skills;
 
 public enum AbilityType : byte
 {
@@ -15,7 +15,8 @@ public enum AbilityType : byte
     Love = 10,
     Predator = 11, // add in 3+
     Trooper = 12,  // add in 3+
-    None = 13      // add in 3+
+    None = 13,     // Legacy sentinel; ID 13 compatibility needs separate migration.
+    Pleasure = 14 // compact.sqlite3 login_stage_abilities: loginstage_class_pleasure
 }
 
 public class Ability

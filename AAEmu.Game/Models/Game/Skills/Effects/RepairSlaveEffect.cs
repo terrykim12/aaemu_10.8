@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 using AAEmu.Game.Core.Managers;
@@ -42,16 +42,8 @@ public class RepairSlaveEffect : EffectTemplate
                 return;
             }
 
-            if (slaveItem.Template is not SummonSlaveTemplate summonTemplate)
+            if (slaveItem.Template is not SummonSlaveTemplate)
                 return;
-
-            if (!SlaveManager.Instance._repairableSlaves.TryGetValue(summonTemplate.SlaveId,
-                    out var expectedEffectId) || (expectedEffectId != Id))
-            {
-                targetPlayer.SendErrorMessage(ErrorMessageType.ItemFailedRepair); // not sure if this would be the correct one
-                Logger.Warn($"{targetPlayer.Name} tried to use the wrong repair item {slaveItem.Id} (template: {slaveItem.TemplateId} for slave type {summonTemplate.SlaveId}");
-                return;
-            }
 
             slaveItem.IsDestroyed = 0;
             slaveItem.RepairStartTime = DateTime.UtcNow;

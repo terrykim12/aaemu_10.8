@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Microsoft.Data.Sqlite;
 
@@ -110,6 +110,11 @@ public sealed class SQLiteWrapperReader : IDisposable
     public long GetInt64(string column)
     {
         return _reader.GetInt64(GetOrdinal(column));
+    }
+
+    public long GetInt64(string column, long defaultValue)
+    {
+        return IsDBNull(column) ? defaultValue : GetInt64(column);
     }
 
     public ulong GetUInt64(string column) => (ulong)GetInt64(column);

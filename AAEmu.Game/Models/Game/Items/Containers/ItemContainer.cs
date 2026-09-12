@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -665,8 +665,8 @@ public class ItemContainer
                 syncPackets.Add(ItemManager.SetItemExpirationTime(newItem, DateTime.UtcNow.AddMinutes(newItem.Template.ExpAbsLifetime)));
             if (newItem.Template.ExpOnlineLifetime > 0)
                 syncPackets.Add(ItemManager.SetItemOnlineExpirationTime(newItem, newItem.Template.ExpOnlineLifetime));
-            if (newItem.Template.ExpDate > 0)
-                syncPackets.Add(ItemManager.SetItemExpirationTime(newItem, DateTime.UtcNow.AddMinutes(newItem.Template.ExpDate)));
+            if (newItem.Template.ExpDate > DateTime.MinValue)
+                syncPackets.Add(ItemManager.SetItemExpirationTime(newItem, newItem.Template.ExpDate));
 
             if ((newItem is EquipItem equipItem) && (newItem.Template is EquipItemTemplate equipItemTemplate))
             {

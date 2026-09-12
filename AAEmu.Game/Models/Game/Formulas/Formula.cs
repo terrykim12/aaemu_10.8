@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using AAEmu.Game.Core.Managers;
@@ -27,6 +27,7 @@ public class Formula
 
     public double Evaluate(Dictionary<string, double> parameters)
     {
+        parameters.TryAdd("heir_level", 0);
         lock (Expression)
         {
             try

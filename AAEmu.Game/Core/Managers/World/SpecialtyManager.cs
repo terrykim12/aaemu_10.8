@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -56,13 +56,12 @@ public class SpecialtyManager : Singleton<SpecialtyManager>
                 {
                     while (reader.Read())
                     {
-                        var template = new Specialty();
-                        template.Id = reader.GetUInt32("id");
-                        template.RowZoneGroupId = reader.GetUInt32("row_zone_group_id");
-                        template.ColZoneGroupId = reader.GetUInt32("col_zone_group_id");
-                        template.Ratio = reader.GetUInt32("ratio");
-                        template.Profit = reader.GetUInt32("profit");
-                        template.VendorExist = reader.GetBoolean("id", true);
+                        var template = new Specialty
+                        {
+                            Id = reader.GetUInt32("id"),
+                            RowZoneGroupId = reader.GetUInt32("row_zone_group_id"),
+                            ColZoneGroupId = reader.GetUInt32("col_zone_group_id")
+                        };
                         _specialties.Add(template.Id, template);
                     }
                 }

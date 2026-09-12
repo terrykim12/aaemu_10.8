@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 using AAEmu.Commons.Cryptography;
 using AAEmu.Commons.Network;
@@ -24,6 +24,12 @@ public abstract class GamePacket : PacketBase<GameConnection>
     // send encrypted packets from the server
     public override PacketStream Encode()
     {
+        if (TypeId == 0xFFF)
+        {
+            Logger.Warn($"Dropping unmapped packet: {GetType().Name} (TypeId=0x{TypeId:X3})");
+            return null;
+        }
+
         //lock (Connection.WriteLock)
         {
             byte count = 0;
@@ -114,9 +120,8 @@ public abstract class GamePacket : PacketBase<GameConnection>
 
             if (TypeId == 0xFFF)
             {
-                Logger.Error("UNKNOWN OPCODE FOR PACKET");
-                Logger.Debug($"GamePacket: S->C type [{Level}:{TypeId:X3}] C:[{count}:{EncryptionManager.Instance.GetSCMessageCount(Connection.Id, Connection.AccountId)}] {ToString()?.Substring(23)}{Verbose()}");
-                throw new SystemException();
+                Logger.Warn($"Dropping unmapped packet: {GetType().Name} (TypeId=0x{TypeId:X3})");
+                return null;
             }
             if (EncryptionManager.Instance.GetSCMessageCount(Connection.Id, Connection.AccountId) == count && Level == 5)
             {
@@ -139,9 +144,8 @@ public abstract class GamePacket : PacketBase<GameConnection>
         {
             if (TypeId == 0xFFF)
             {
-                Logger.Error("UNKNOWN OPCODE FOR PACKET");
-                Logger.Debug($"GamePacket: S->C type [{Level}:{TypeId:X3}] {ToString()?.Substring(23)}{Verbose()}");
-                throw new SystemException();
+                Logger.Warn($"Ignoring unmapped C->S packet: [{Level}:{TypeId:X3}] {ToString()?.Substring(23)}{Verbose()}");
+                return this;
             }
 
             try

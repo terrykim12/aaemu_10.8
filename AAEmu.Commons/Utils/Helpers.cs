@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -136,19 +136,26 @@ public static class Helpers
 
     public static (float x, float y, float z) ConvertPosition(byte[] values)
     {
-        var tempX = 8 * (values[0] + ((values[1] + (values[2] << 8)) << 8));
-        var flagX = (int)(((-(values[8] & 0x80) >> 30) & 0xFFFFFFFE) + 1);
-        var resX = ((long)tempX << 32) * flagX;
+        if (values == null || values.Length < 11)
+            return (0, 0, 0);
 
-        var tempY = 8 * (values[3] + ((values[4] + (values[5] << 8)) << 8));
-        var flagY = (((-(values[8] & 0x40) >> 30) & 0xFFFFFFFE) + 1);
-        var resY = ((long)tempY << 32) * flagY;
+        uint u32X = (uint)(values[0] | (values[1] << 8) | (values[2] << 16) | (values[3] << 24));
+        uint u32Y = (uint)(values[4] | (values[5] << 8) | (values[6] << 16) | (values[7] << 24));
+        byte z0 = values[8];
+        byte z1 = values[9];
+        byte z2 = values[10];
 
-        var tempZ = (ulong)(values[6] + ((values[7] + ((values[8] & 0x3f) << 8)) << 8));
+        int flagX = (z2 & 0x80) != 0 ? -1 : 1;
+        int flagY = (z2 & 0x40) != 0 ? -1 : 1;
+
+        long resX = ((long)u32X << 35) * flagX;
+        long resY = ((long)u32Y << 35) * flagY;
+
+        uint u22Z = (uint)(z0 | (z1 << 8) | ((z2 & 0x3F) << 16));
 
         var resultX = ConvertLongX(resX);
         var resultY = ConvertLongY(resY);
-        var resultZ = (float)Math.Round(tempZ * 0.00000023841858 * 4196 - 100, 4, MidpointRounding.ToEven);
+        var resultZ = (float)Math.Round(u22Z * 0.0000002384185791015625 * 4196.0 - 100.0, 4, MidpointRounding.ToEven);
 
         return (resultX, resultY, resultZ);
     }
@@ -158,25 +165,32 @@ public static class Helpers
         var longX = ConvertLongX(x);
         var longY = ConvertLongY(y);
 
-        var preX = longX >> 31;
-        var preY = longY >> 31;
+        var preX = longX >> 63;
+        var preY = longY >> 63;
 
-        var resultX = (preX ^ (longX + preX + (0 > preX ? 1 : 0))) >> 3;
-        var resultY = (preY ^ (longY + preY + (0 > preY ? 1 : 0))) >> 3;
-        var resultZ = (long)Math.Floor((z + 100f) / 4196f * 4194304f + 0.5);
+        var absX = (longX ^ preX) - preX; // abs(longX)
+        var absY = (longY ^ preY) - preY; // abs(longY)
 
-        var position = new byte[9];
-        position[0] = (byte)(resultX >> 32);
-        position[1] = (byte)(resultX >> 40);
-        position[2] = (byte)(resultX >> 48);
+        uint u32X = (uint)(absX >> 35);
+        uint u32Y = (uint)(absY >> 35);
 
-        position[3] = (byte)(resultY >> 32);
-        position[4] = (byte)(resultY >> 40);
-        position[5] = (byte)(resultY >> 48);
+        var clampedZ = z < -100f ? -100f : (z > 4096f ? 4096f : z);
+        var resultZ = (uint)Math.Floor((clampedZ + 100f) / 4196f * 4194304f + 0.5);
 
-        position[6] = (byte)resultZ;
-        position[7] = (byte)(resultZ >> 8);
-        position[8] = (byte)(((resultZ >> 16) & 0x3F) + (((y < 0 ? 1 : 0) + 2 * (x < 0 ? 1 : 0)) << 6));
+        var position = new byte[11];
+        position[0] = (byte)u32X;
+        position[1] = (byte)(u32X >> 8);
+        position[2] = (byte)(u32X >> 16);
+        position[3] = (byte)(u32X >> 24);
+
+        position[4] = (byte)u32Y;
+        position[5] = (byte)(u32Y >> 8);
+        position[6] = (byte)(u32Y >> 16);
+        position[7] = (byte)(u32Y >> 24);
+
+        position[8] = (byte)resultZ;
+        position[9] = (byte)(resultZ >> 8);
+        position[10] = (byte)(((resultZ >> 16) & 0x3F) | ((x < 0 ? 0x80 : 0) | (y < 0 ? 0x40 : 0)));
         return position;
     }
 

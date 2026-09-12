@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -280,11 +280,9 @@ public class HousingManager : Singleton<HousingManager>
                         template.AllowOnWall = reader.GetBoolean("allow_on_wall", true);
                         template.AllowOnCeiling = reader.GetBoolean("allow_on_ceiling", true);
                         template.DoodadId = reader.GetUInt32("doodad_id");
-                        template.AllowPivotOnGarden = reader.GetBoolean("allow_pivot_on_garden", true);
                         template.ActabilityGroupId = !reader.IsDBNull("actability_group_id") ? reader.GetUInt32("actability_group_id") : 0;
                         template.ActabilityUp = !reader.IsDBNull("actability_up") ? reader.GetUInt32("actability_up") : 0;
                         template.DecoActAbilityGroupId = !reader.IsDBNull("deco_actability_group_id") ? reader.GetUInt32("deco_actability_group_id") : 0;
-                        template.AllowMeshOnGarden = reader.GetBoolean("allow_mesh_on_garden", true);
 
                         _housingDecorations.Add(template.Id, template);
                     }

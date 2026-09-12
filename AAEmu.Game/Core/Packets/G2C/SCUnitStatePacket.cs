@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 
 using AAEmu.Commons.Network;
@@ -66,6 +66,11 @@ public class SCUnitStatePacket : GamePacket
         stream.WriteBc(_unit.ObjId);
         stream.Write(_unit.Name);
 
+        // 10.8 header fields (0xA06AB6, 0xA06ADE, 0xA06B1E)
+        stream.Write((byte)(_unit.Transform?.WorldId ?? 0)); // worldId (u8)
+        stream.Write((byte)0);                               // regionId (u8)
+        stream.Write(false);                                 // isInGlobalWorld (bool)
+
         // Cache character & npc
         var character = _unit as Character;
         var npc = _unit as Npc;
@@ -75,13 +80,13 @@ public class SCUnitStatePacket : GamePacket
         switch (_baseUnitType)
         {
             case BaseUnitType.Character:
-                stream.Write(character?.Id ?? 0u); // type(id)
-                stream.Write(0L);                  // v
+                stream.Write((long)(character?.Id ?? 0L)); // type(id) - int64 in 10.8 (0x9E4964). Checked at 0x3B48BB against selected CharacterId to bind myUnit!
+                stream.Write(0L); // r651723: v follows type (0x9E4977-0x9E498C), 8-byte neutral value.
                 break;
             case BaseUnitType.Npc:
                 stream.WriteBc(npc.ObjId);    // objId
                 stream.Write(npc.TemplateId); // npc templateId
-                stream.Write(0u);             // type(id)
+                stream.Write(0L);             // type(id) - int64 (0x9E49D2)
                 stream.Write((byte)0);        // clientDriven
                 break;
             case BaseUnitType.Slave:
@@ -129,28 +134,44 @@ public class SCUnitStatePacket : GamePacket
             stream.Write("");
 
         stream.WritePosition(_unit.Transform.Local.Position);
-        stream.Write(_unit.Scale); // scale
-        stream.Write(_unit.Level); // level
-        stream.Write((byte)0);     // level for 3.0.3.0
+        stream.Write(_unit.Scale); // scale (float)
+        var heirLevel = (byte)(npc?.Template?.HeirLevel ?? 0);
+        stream.Write(_unit.Level); // level (u8)
+        stream.Write(heirLevel);   // heirLevel (u8)
+        stream.Write(_unit.Level); // level for 10.8 (0xAF39D0)
+        stream.Write(heirLevel);   // heirLevel for 10.8 (0xAF39D0)
         for (var i = 0; i < 4; i++)
-            stream.Write((sbyte)-1); // slot for 3.0.3.0
+            stream.Write((sbyte)-1); // slot (0xAF3B30)
 
-        stream.Write(_unit.ModelId); // modelRef
+        var modelId = _unit.ModelId;
+        if (modelId == 0 && _unit is Character ch)
+        {
+            modelId = AAEmu.Game.Core.Managers.UnitManagers.CharacterManager.Instance.GetTemplate((byte)ch.Race, (byte)ch.Gender)?.ModelId ?? 17;
+            ch.ModelId = modelId;
+        }
 
-        #region CharacterInfo_3EB0
+        // r651723 binary archive +0x30 returns true without consuming a byte.
+        // modelRef therefore always contains only its uint32 type (x2game+A06C65).
+        var diagnosticModelOffset = stream.GetBytes().Length;
+        stream.Write(modelId);
 
-        //Inventory_Equip1(stream, _unit); // Equip character
-        //Inventory_Equip2(stream, _unit, _baseUnitType); // Equip character
-        //Inventory_Equip0(stream, _unit); // Equip character
-        Inventory_Equip3(stream, _unit); // Equip character
+        EquipmentSerializer.Write(stream, _unit, _baseUnitType);
 
-        #endregion CharacterInfo_3EB0
+        if (_unit is Character player)
+        {
+            player.ModelParams.Race = (byte)player.Race;
+            player.ModelParams.Gender = (byte)player.Gender;
+            if (player.ModelParams.VisualRace == 0)
+                player.ModelParams.VisualRace = (byte)player.Race;
+            if (player.ModelParams.VisualGender == 0)
+                player.ModelParams.VisualGender = (byte)player.Gender;
+        }
 
-        stream.Write(_unit.ModelParams); // CustomModel_3570
+        stream.Write(_unit.ModelParams); // CustomModel
 
         stream.WriteBc(0);
-        stream.Write(_unit.Hp * 100); // preciseHealth
-        stream.Write(_unit.Mp * 100); // preciseMana
+        stream.Write((long)_unit.Hp * 100L); // preciseHealth (int64)
+        stream.Write((long)_unit.Mp * 100L); // preciseMana (int64)
 
         #region AttachPoint1
         switch (_unit)
@@ -217,9 +238,7 @@ public class SCUnitStatePacket : GamePacket
         #endregion AttachPoint2
 
         #region UnitModelPosture
-
         Unit.ModelPosture(stream, _unit, _baseUnitType, _modelPostureType);
-
         #endregion
 
         stream.Write(_unit.ActiveWeapon);
@@ -230,15 +249,12 @@ public class SCUnitStatePacket : GamePacket
                 {
                     var skillList = character.Skills.Skills.Values.ToList();
 
-                    stream.Write((byte)skillList.Count);       // learnedSkillCount
-                    if (skillList.Count > 0)
-                        Logger.Trace($"Warning! character.learnedSkillCount = {character.Skills.Skills.Count}");
-
+                    stream.Write((byte)skillList.Count);                    // learnedSkillCount
                     stream.Write((byte)character.Skills.PassiveBuffs.Count); // passiveBuffCount
-                    if (character.Skills.PassiveBuffs.Count > 0)
-                        Logger.Trace($"Warning! character.passiveBuffCount = {character.Skills.PassiveBuffs.Count}");
-
                     stream.Write(character.HighAbilityRsc);                  // highAbilityRsc
+                    stream.Write(0u); // appellationStamp: reader vtable+0xA0 consumes uint32.
+                    stream.Write(0);                                        // vechicleDyeing (10.8)
+                    stream.Write(false);                                    // isTempFaction (10.8)
 
                     var hcount = skillList.Count;
                     if (hcount > 0)
@@ -252,31 +268,23 @@ public class SCUnitStatePacket : GamePacket
                             switch (pcount)
                             {
                                 case 1:
-                                    {
-                                        stream.WritePisc(skillList[index].Id);
-                                        index += 1;
-                                        break;
-                                    }
+                                    stream.WritePisc(skillList[index].Id);
+                                    index += 1;
+                                    break;
                                 case 2:
-                                    {
-                                        stream.WritePisc(skillList[index].Id, skillList[index + 1].Id);
-                                        index += 2;
-                                        break;
-                                    }
+                                    stream.WritePisc(skillList[index].Id, skillList[index + 1].Id);
+                                    index += 2;
+                                    break;
                                 case 3:
-                                    {
-                                        stream.WritePisc(skillList[index].Id, skillList[index + 1].Id,
-                                            skillList[index + 2].Id);
-                                        index += 3;
-                                        break;
-                                    }
+                                    stream.WritePisc(skillList[index].Id, skillList[index + 1].Id,
+                                        skillList[index + 2].Id);
+                                    index += 3;
+                                    break;
                                 case 4:
-                                    {
-                                        stream.WritePisc(skillList[index].Id, skillList[index + 1].Id,
-                                            skillList[index + 2].Id, skillList[index + 3].Id);
-                                        index += 4;
-                                        break;
-                                    }
+                                    stream.WritePisc(skillList[index].Id, skillList[index + 1].Id,
+                                        skillList[index + 2].Id, skillList[index + 3].Id);
+                                    index += 4;
+                                    break;
                             }
                             hcount -= pcount;
                         } while (hcount > 0);
@@ -295,35 +303,27 @@ public class SCUnitStatePacket : GamePacket
                             switch (pcount)
                             {
                                 case 1:
-                                    {
-                                        stream.WritePisc(buffList[index].Template.BuffId);
-                                        index += 1;
-                                        break;
-                                    }
+                                    stream.WritePisc(buffList[index].Template.BuffId);
+                                    index += 1;
+                                    break;
                                 case 2:
-                                    {
-                                        stream.WritePisc(buffList[index].Template.BuffId,
-                                            buffList[index + 1].Template.BuffId);
-                                        index += 2;
-                                        break;
-                                    }
+                                    stream.WritePisc(buffList[index].Template.BuffId,
+                                        buffList[index + 1].Template.BuffId);
+                                    index += 2;
+                                    break;
                                 case 3:
-                                    {
-                                        stream.WritePisc(buffList[index].Template.BuffId,
-                                            buffList[index + 1].Template.BuffId,
-                                            buffList[index + 2].Template.BuffId);
-                                        index += 3;
-                                        break;
-                                    }
+                                    stream.WritePisc(buffList[index].Template.BuffId,
+                                        buffList[index + 1].Template.BuffId,
+                                        buffList[index + 2].Template.BuffId);
+                                    index += 3;
+                                    break;
                                 case 4:
-                                    {
-                                        stream.WritePisc(buffList[index].Template.BuffId,
-                                            buffList[index + 1].Template.BuffId,
-                                            buffList[index + 2].Template.BuffId,
-                                            buffList[index + 3].Template.BuffId);
-                                        index += 4;
-                                        break;
-                                    }
+                                    stream.WritePisc(buffList[index].Template.BuffId,
+                                        buffList[index + 1].Template.BuffId,
+                                        buffList[index + 2].Template.BuffId,
+                                        buffList[index + 3].Template.BuffId);
+                                    index += 4;
+                                    break;
                             }
                             hcount -= pcount;
                         } while (hcount > 0);
@@ -352,13 +352,12 @@ public class SCUnitStatePacket : GamePacket
                     foreach (var sl in npc.Template.Skills.Values)
                         skills.AddRange(sl);
 
-                    stream.Write((byte)skills.Count);    // learnedSkillCount
-                    if (skills.Count > 0)
-                        Logger.Trace($"Warning! npc.Template.Skills.Count = {skills.Count}");
-
-                    stream.Write((byte)npc.Template.PassiveBuffs.Count); // passiveBuffCount
-
-                    stream.Write(npc.HighAbilityRsc);                    // highAbilityRsc
+                    stream.Write((byte)skills.Count);                   // learnedSkillCount
+                    stream.Write((byte)npc.Template.PassiveBuffs.Count);// passiveBuffCount
+                    stream.Write(npc.HighAbilityRsc);                   // highAbilityRsc
+                    stream.Write(0u); // appellationStamp: reader vtable+0xA0 consumes uint32.
+                    stream.Write(0);                                    // vechicleDyeing (10.8)
+                    stream.Write(false);                                // isTempFaction (10.8)
 
                     var hcount = skills.Count;
                     if (hcount > 0)
@@ -372,31 +371,23 @@ public class SCUnitStatePacket : GamePacket
                             switch (pcount)
                             {
                                 case 1:
-                                    {
-                                        stream.WritePisc(skills[index].SkillId);
-                                        index += 1;
-                                        break;
-                                    }
+                                    stream.WritePisc(skills[index].SkillId);
+                                    index += 1;
+                                    break;
                                 case 2:
-                                    {
-                                        stream.WritePisc(skills[index].SkillId, skills[index + 1].SkillId);
-                                        index += 2;
-                                        break;
-                                    }
+                                    stream.WritePisc(skills[index].SkillId, skills[index + 1].SkillId);
+                                    index += 2;
+                                    break;
                                 case 3:
-                                    {
-                                        stream.WritePisc(skills[index].SkillId, skills[index + 1].SkillId,
-                                            skills[index + 2].SkillId);
-                                        index += 3;
-                                        break;
-                                    }
+                                    stream.WritePisc(skills[index].SkillId, skills[index + 1].SkillId,
+                                        skills[index + 2].SkillId);
+                                    index += 3;
+                                    break;
                                 case 4:
-                                    {
-                                        stream.WritePisc(skills[index].SkillId, skills[index + 1].SkillId,
-                                            skills[index + 2].SkillId, skills[index + 3].SkillId);
-                                        index += 4;
-                                        break;
-                                    }
+                                    stream.WritePisc(skills[index].SkillId, skills[index + 1].SkillId,
+                                        skills[index + 2].SkillId, skills[index + 3].SkillId);
+                                    index += 4;
+                                    break;
                             }
                             hcount -= pcount;
                         } while (hcount > 0);
@@ -415,29 +406,21 @@ public class SCUnitStatePacket : GamePacket
                             switch (pcount)
                             {
                                 case 1:
-                                    {
-                                        stream.WritePisc(buffs[index].PassiveBuffId);
-                                        index += 1;
-                                        break;
-                                    }
+                                    stream.WritePisc(buffs[index].PassiveBuffId);
+                                    index += 1;
+                                    break;
                                 case 2:
-                                    {
-                                        stream.WritePisc(buffs[index].PassiveBuffId, buffs[index + 1].PassiveBuffId);
-                                        index += 2;
-                                        break;
-                                    }
+                                    stream.WritePisc(buffs[index].PassiveBuffId, buffs[index + 1].PassiveBuffId);
+                                    index += 2;
+                                    break;
                                 case 3:
-                                    {
-                                        stream.WritePisc(buffs[index].PassiveBuffId, buffs[index + 1].PassiveBuffId, buffs[index + 2].PassiveBuffId);
-                                        index += 3;
-                                        break;
-                                    }
+                                    stream.WritePisc(buffs[index].PassiveBuffId, buffs[index + 1].PassiveBuffId, buffs[index + 2].PassiveBuffId);
+                                    index += 3;
+                                    break;
                                 case 4:
-                                    {
-                                        stream.WritePisc(buffs[index].PassiveBuffId, buffs[index + 1].PassiveBuffId, buffs[index + 2].PassiveBuffId, buffs[index + 3].PassiveBuffId);
-                                        index += 4;
-                                        break;
-                                    }
+                                    stream.WritePisc(buffs[index].PassiveBuffId, buffs[index + 1].PassiveBuffId, buffs[index + 2].PassiveBuffId, buffs[index + 3].PassiveBuffId);
+                                    index += 4;
+                                    break;
                             }
                             hcount -= pcount;
                         } while (hcount > 0);
@@ -448,14 +431,17 @@ public class SCUnitStatePacket : GamePacket
                 {
                     stream.Write((byte)0); // learnedSkillCount
                     stream.Write((byte)0); // passiveBuffCount
-                    stream.Write(0);       // highAbilityRsc
+                    stream.Write(0u);      // highAbilityRsc
+                    stream.Write(0u); // appellationStamp: reader vtable+0xA0 consumes uint32.
+                    stream.Write(0);       // vechicleDyeing (10.8)
+                    stream.Write(false);   // isTempFaction (10.8)
                     break;
                 }
         }
 
         // Rotation
         if (_baseUnitType == BaseUnitType.Housing)
-            stream.Write(_unit.Transform.Local.Rotation.Z); // должно быть float
+            stream.Write(_unit.Transform.Local.Rotation.Z);
         else
         {
             var (roll, pitch, yaw) = _unit.Transform.Local.ToRollPitchYawSBytes();
@@ -481,16 +467,16 @@ public class SCUnitStatePacket : GamePacket
         {
             // ???, ??? and Appellation (Title)
             stream.WritePisc(0, 0, character.Appellations.ActiveAppellation, 0);      // pisc
-                                                                                      // Faction and Guild
-            stream.WritePisc(character.Faction?.Id ?? 0, character.Expedition?.Id ?? 0, 0, 0); // pisc
-                                                                                               // PvP Honor gained and PvP Kills
+            // Faction and Guild (10.8 uses 3 ints, not 4!)
+            stream.WritePisc(character.Faction?.Id ?? 0, character.Expedition?.Id ?? 0, 0); // pisc
+            // PvP Honor gained and PvP Kills
             stream.WritePisc(character.HonorGainedInCombat, character.HostileFactionKills, 0, 0); // pisc
         }
         else
         {
-            stream.WritePisc(0, 0, 0, 0); // TODO второе число больше нуля, что это за число?
-            stream.WritePisc(_unit.Faction?.Id ?? 0, _unit.Expedition?.Id ?? 0, 0, 0); // pisc
-            stream.WritePisc(0, 0, 0, 0); // pisc
+            stream.WritePisc(0, 0, 0, 0);
+            stream.WritePisc(_unit.Faction?.Id ?? 0, _unit.Expedition?.Id ?? 0, 0); // pisc
+            stream.WritePisc(0, 0, 0, 0);
         }
 
         switch (_unit)
@@ -503,84 +489,38 @@ public class SCUnitStatePacket : GamePacket
                     if (character.IdleStatus)
                         flags.Set(13);
                     stream.Write(flags.ToByteArray()); // flags(ushort)
-
-                    /*
-                    * 0x0001 - 8bit - режим боя
-                    * 0x0002 - 7bit - 
-                    * 0x0004 - 6bit - невидимость?
-                    * 0x0008 - 5bit - дуэль
-                    * 0x0010 - 4bit - 
-                    * 0x0040 - 2bit - gmmode, дополнительно 7 байт
-                    * 0x0080 - 1bit - дополнительно tl(ushort), tl(ushort), tl(ushort), tl(ushort)
-                    * 0x0020
-                    * 0x0200
-                    * 0x0100 - 16bit - дополнительно 3 байт (bc), firstHitterTeamId(uint)
-                    * 0x0400 - 14bit - надпись "Отсутсвует" под именем
-                    * 0x1000
-                    * 0x0800
-                    */
                     break;
                 }
             case Npc:
-                //var flags = new BitSet(16); // short
-                //if (npc.IsInBattle)
-                //    flags.Set(1);
-                //if (npc.Invisible)
-                //    flags.Set(5);
-                //stream.Write(flags.ToByteArray()); // flags(ushort)
-                //if (flags.Get(1)) // если Npc в бою, то шлем дополнительные байты
-                //{
-                //    stream.WriteBc(npc.CurrentAggroTarget);  // objId бойца
-                //    stream.WriteBc(0u); // TeamId команды, кто первая нанесла удар
-                //}
                 stream.Write((ushort)0); // flags
                 break;
             default:
                 stream.Write((ushort)0); // flags
                 break;
         }
+        stream.Write((byte)0); // attckFactionFlags (10.8)
 
         if (_unit is Character)
         {
-            #region read_Abilities_6300
-            var activeAbilities = character.Abilities.GetActiveAbilities();
-            foreach (var ability in character.Abilities.Values)
+            #region read_Abilities_108
+            // 10.8 reads abilities 1 to 29 (exp uint32, order sbyte)
+            for (var i = 1; i <= 29; i++)
             {
-                stream.Write(ability.Exp);
-                stream.Write(ability.Order);
+                var ability = character.Abilities.Values.FirstOrDefault(a => (int)a.Id == i);
+                stream.Write((uint)(ability?.Exp ?? 0));
+                stream.Write((sbyte)(ability != null ? (sbyte)ability.Order : (sbyte)-1));
             }
 
+            var activeAbilities = character.Abilities.GetActiveAbilities();
             stream.Write((byte)activeAbilities.Count); // nActive
             foreach (var ability in activeAbilities)
             {
                 stream.Write((byte)ability); // active
             }
-            #endregion read_Abilities_6300
-
-            #region read_Exp_Order_6460
-            foreach (var ability in character.Abilities.Values)
-            {
-                stream.Write(ability.Exp);
-                stream.Write(ability.Order);  // ability.Order
-                stream.Write(false);          // canNotLevelUp
-            }
-
-            byte nHighActive = 0;
-            byte nActive = 0;
-            stream.Write(nHighActive); // nHighActive
-            stream.Write(nActive);     // nActive
-            while (nHighActive > 0)
-            {
-                while (nActive > 0)
-                {
-                    stream.Write(0); // active
-                    nActive--;
-                }
-                nHighActive--;
-            }
-            #endregion read_Exp_Order_6460
+            #endregion read_Abilities_108
 
             stream.WriteBc(0);     // objId
+            stream.Write((byte)0); // duelTeamType (10.8)
             stream.Write((byte)0); // camp
 
             #region Stp
@@ -593,57 +533,51 @@ public class SCUnitStatePacket : GamePacket
 
             stream.Write((byte)7); // flags
             stream.Write((byte)0); // cosplay_visual
-
-            //character6.VisualOptions.Write(stream, 0x20); // cosplay_visual
-            //character6.VisualOptions.WriteOptions(stream);
-
             #endregion Stp
 
-            stream.Write(1); // premium
-
-            #region Stats
-            for (var i = 0; i < 5; i++)
-            {
-                stream.Write(0); // stats
-            }
-            stream.Write(0); // extendMaxStats
-            stream.Write(0); // applyExtendCount
-            stream.Write(0); // applyNormalCount
-            stream.Write(0); // applySpecialCount
-            #endregion Stats
-
-            stream.WritePisc(0, 0, 0, 0);
-            stream.WritePisc(0, 0);
-            stream.Write((byte)0); // accountPrivilege
+            stream.Write(1u); // premium: reader vtable+0xA0 consumes uint32.
+            stream.Write(0u); // _pageInfos count; binary optional groups consume no bytes.
+            stream.Write(0);     // _selectPageIndex (10.8: x2game.dll + 0xA081FB ReadInt32, 4B)
+            stream.Write(0);     // _extendMaxStats (10.8: x2game.dll + 0xA08218 ReadInt32, 4B)
+            stream.Write(0);     // _applyExtendCount (10.8: x2game.dll + 0xA08236 ReadInt32, 4B)
+            stream.Write(0u); // equipSlotReinforces.slotInfoList count
+        stream.Write(0u); // equipSlotReinforces.levelEffectList count
         }
         #endregion NetUnit
 
         #region NetBuff
-
         var goodBuffs = new List<Buff>();
         var badBuffs = new List<Buff>();
         var hiddenBuffs = new List<Buff>();
 
         _unit.Buffs.GetAllBuffs(goodBuffs, badBuffs, hiddenBuffs);
 
-        stream.Write((byte)goodBuffs.Count); // TODO max 32
+        stream.Write((byte)goodBuffs.Count);
         foreach (var buff in goodBuffs)
         {
             WriteBuff(stream, buff);
         }
 
-        stream.Write((byte)badBuffs.Count); // TODO max 24 for 1.2, 20 for 3.0.3.0
+        stream.Write((byte)badBuffs.Count);
         foreach (var buff in badBuffs)
         {
             WriteBuff(stream, buff);
         }
 
-        stream.Write((byte)hiddenBuffs.Count); // TODO max 24 for 1.2, 28 for 3.0.3.0
+        stream.Write((byte)hiddenBuffs.Count);
         foreach (var buff in hiddenBuffs)
         {
             WriteBuff(stream, buff);
         }
         #endregion NetBuff
+
+        if (_unit is Character && System.Environment.GetEnvironmentVariable("AAEMU_MODEL_DIAGNOSTICS") == "1")
+        {
+            var diagnosticBytes = stream.GetBytes();
+            Logger.Warn("MODEL_DIAG character={0} obj={1} model={2} modelOffset={3} length={4} body={5}",
+                character.Id, _unit.ObjId, modelId, diagnosticModelOffset, diagnosticBytes.Length,
+                System.Convert.ToHexString(diagnosticBytes));
+        }
 
         return stream;
     }
@@ -652,7 +586,7 @@ public class SCUnitStatePacket : GamePacket
     {
         stream.Write(buff.Index);        // Id
         stream.Write(buff.SkillCaster);  // skillCaster
-        stream.Write(0);                 // type(id)
+        stream.Write(0L);                // type(id) - 64-bit in 10.8 (x2game.dll + 0x9F95E2 ReadInt64)
         stream.Write(buff.Caster.Level); // sourceLevel
         stream.Write(buff.AbLevel);      // sourceAbLevel ushort
         stream.WritePisc(0, buff.GetTimeElapsed(), 0, 0u); // add in 3.0.3.0
